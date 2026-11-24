@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>公共危險物品場所自主檢查表 - 簽章欄自動轉換系統</title>
+  
+  <!-- Tailwind CSS Play CDN & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            tactical: {
+              bg: '#060b14',
+              surface: '#0b1323',
+              card: '#0f172a',
+              border: '#1e293b'
+            }
+          },
+          fontFamily: {
+            sans: ['"Noto Sans TC"', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Offline JSZip with Online CDN Fallback -->
+  <script src="jszip.min.js"></script>
+  <script>
+    if (typeof JSZip === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>');
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    
+    .touch-btn {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Drag Hover Effect */
+    .dragover-active {
+      border-color: #22d3ee !important;
+      background-color: rgba(34, 211, 238, 0.08) !important;
+      transform: scale(1.008);
+    }
+  </style>
+</head>
+<body class="bg-[#060b14] text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-300">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-[#070d19]/90 border-b border-slate-800 transition-colors duration-300">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <svg class="w-5 h-5 text-slate-950 font-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
+              公共危險物品場所自主檢查表
+              <span class="text-cyan-400 font-mono text-xs px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40">新制簽章轉換</span>
+            </h1>
+          </div>
+          <p class="text-xs text-slate-400 hidden sm:block">符合《公共危險物品場所設置保安檢查員行政指導綱領》· 100% 瀏覽器本機安全處理</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <!-- Theme Toggle -->
+        <button id="themeToggleBtn" onclick="toggleTheme()" class="touch-btn px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-xs font-medium text-slate-300 flex items-center gap-1.5 transition">
+          <span id="themeIcon">☀️</span>
+          <span id="themeText" class="hidden sm:inline">明亮模式</span>
+        </button>
+
+        <!-- Clear List -->
+        <button id="clearBtn" onclick="clearFiles()" class="touch-btn px-3 py-1.5 rounded-lg border border-slate-800 hover:border-rose-800/60 bg-slate-900/40 hover:bg-rose-950/30 text-xs font-medium text-slate-400 hover:text-rose-400 transition hidden">
+          清空清單
+        </button>
+
+        <!-- Batch Download All -->
+        <button id="downloadAllBtn" onclick="downloadAllAsZip()" class="touch-btn px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 text-xs sm:text-sm font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none" disabled>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+          <span>打包下載全部 (ZIP)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
+
+    <!-- KPI Summary Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
+      <div class="bg-[#0b1323] border border-slate-800/80 rounded-xl p-4 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400">待轉換檔案</p>
+          <h3 id="statTotalFiles" class="text-2xl font-black font-mono text-cyan-400 mt-0.5">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-cyan-950/60 border border-cyan-800/40 flex items-center justify-center text-cyan-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+        </div>
+      </div>
+
+      <div class="bg-[#0b1323] border border-slate-800/80 rounded-xl p-4 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400">完成轉換</p>
+          <h3 id="statConvertedFiles" class="text-2xl font-black font-mono text-emerald-400 mt-0.5">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-emerald-950/60 border border-emerald-800/40 flex items-center justify-center text-emerald-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+      </div>
+
+      <div class="bg-[#0b1323] border border-slate-800/80 rounded-xl p-4 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400">替換簽章表格總數</p>
+          <h3 id="statTotalTables" class="text-2xl font-black font-mono text-amber-400 mt-0.5">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-amber-950/60 border border-amber-800/40 flex items-center justify-center text-amber-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+        </div>
+      </div>
+
+      <div class="bg-[#0b1323] border border-slate-800/80 rounded-xl p-4 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400">機密安全保證</p>
+          <h3 class="text-sm font-bold text-emerald-300 mt-1.5 flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            100% 離線免上傳
+          </h3>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-indigo-950/60 border border-indigo-800/40 flex items-center justify-center text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Workspace (Left 7 Cols / Right 5 Cols) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Left Column: Upload Zone & File List (col-span-7) -->
+      <div class="lg:col-span-7 space-y-4">
+        
+        <!-- Drag & Drop Card -->
+        <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyan-500/70 bg-[#0b1323]/80 rounded-2xl p-8 text-center transition-all duration-200 cursor-pointer group shadow-inner">
+          <input type="file" id="fileInput" multiple accept=".docx" class="hidden" onchange="handleFileSelect(event)">
+          <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden" onchange="handleFileSelect(event)">
+          
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-900 border border-slate-800 group-hover:border-cyan-500/50 flex items-center justify-center text-slate-400 group-hover:text-cyan-400 transition-colors shadow-lg">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+          </div>
+          
+          <h3 class="text-base font-bold text-white group-hover:text-cyan-300 transition-colors">
+            拖曳 Word 檔案 (.docx) 到這裡
+          </h3>
+          <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            支援單檔、多選批次檔案，或是直接點擊下方按鈕選取
+          </p>
+
+          <div class="flex items-center justify-center gap-3 mt-5">
+            <button type="button" onclick="document.getElementById('fileInput').click()" class="touch-btn px-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+              選擇多個檔案
+            </button>
+            <button type="button" onclick="document.getElementById('folderInput').click()" class="touch-btn px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+              選擇整個資料夾
+            </button>
+          </div>
+        </div>
+
+        <!-- Files List Card -->
+        <div class="bg-[#0b1323] border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+          <div class="px-5 py-3.5 border-b border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-bold text-white">轉換檔案清單</h2>
+              <span id="fileBadgeCount" class="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">0</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="progressIndicator" class="text-xs font-mono text-cyan-400 hidden">處理中...</span>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div id="emptyState" class="py-12 text-center text-slate-500">
+            <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <p class="text-sm">尚未加入任何檔案</p>
+            <p class="text-xs text-slate-600 mt-1">請將要修改的自主檢查表拖曳進上方區域</p>
+          </div>
+
+          <!-- File Items Container -->
+          <div id="fileListContainer" class="divide-y divide-slate-800/60 max-h-[460px] overflow-y-auto">
+            <!-- Items will be injected here via JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Visual Before & After + Policy Guide (col-span-5) -->
+      <div class="lg:col-span-5 space-y-4">
+        
+        <!-- Before / After Visual Card -->
+        <div class="bg-[#0b1323] border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              格式轉換對照規格
+            </h2>
+            <span class="text-xs text-slate-400 font-mono">法規精準替換</span>
+          </div>
+
+          <!-- Before (Old Format) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-rose-400 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                原表格簽章列（第一張圖 · 舊版 2 列結構）
+              </span>
+              <span class="text-[11px] text-slate-500 font-mono">淘汰</span>
+            </div>
+            <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] font-mono leading-relaxed text-slate-300">
+              <div class="grid grid-cols-4 gap-1 text-center font-sans border-b border-slate-700/80 pb-1 text-slate-400">
+                <div class="border-r border-slate-800 py-0.5">簽章</div>
+                <div class="border-r border-slate-800 py-0.5">管理權人或現場有關人員</div>
+                <div class="border-r border-slate-800 py-0.5">檢查及會同人員</div>
+                <div class="py-0.5">審核人員</div>
+              </div>
+              <div class="grid grid-cols-4 gap-1 text-center font-sans pt-1 text-slate-600">
+                <div class="border-r border-slate-800 py-2">（手寫）</div>
+                <div class="border-r border-slate-800 py-2">（手寫）</div>
+                <div class="border-r border-slate-800 py-2">（手寫）</div>
+                <div class="py-2">（手寫）</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Arrow Divider -->
+          <div class="flex items-center justify-center">
+            <div class="w-7 h-7 rounded-full bg-cyan-950/80 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+            </div>
+          </div>
+
+          <!-- After (New Format) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-emerald-400 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                轉換後新簽名列（最新標準 · 完整邊框 · 靠左留白簽章）
+              </span>
+              <span class="text-[11px] text-emerald-400 font-mono">現行法定標準</span>
+            </div>
+            <div class="p-3.5 rounded-lg bg-emerald-950/20 border border-emerald-500/40 text-xs font-mono leading-relaxed">
+              <div class="border border-slate-700 grid grid-cols-12 divide-x divide-slate-700 bg-slate-900/80 rounded">
+                <div class="col-span-3 p-2 text-left text-slate-200">
+                  <div class="text-cyan-300 font-medium text-xs">檢查日期：</div>
+                  <div class="text-[10px] text-slate-500 mt-2 font-mono">（留白供手寫日期）</div>
+                </div>
+                <div class="col-span-4 p-2 text-left text-slate-200">
+                  <div class="text-emerald-300 font-medium text-xs">保安檢查員簽名：</div>
+                  <div class="text-[10px] text-slate-500 mt-2 font-mono">（留白供簽名蓋章）</div>
+                </div>
+                <div class="col-span-5 p-2 text-left text-slate-200">
+                  <div class="text-amber-300 font-medium text-xs">保安監督人複核簽名：</div>
+                  <div class="text-[10px] text-slate-500 mt-2 font-mono">（留白供覆核簽章）</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Policy & Safety Notes -->
+          <div class="pt-2 border-t border-slate-800 space-y-2 text-xs text-slate-400">
+            <div class="flex items-start gap-2">
+              <span class="text-cyan-400 mt-0.5">🔹</span>
+              <p><strong class="text-slate-300 font-medium">絕對不更動其他部分：</strong>程式只鎖定包含管理權人與簽章的原表格列進行精準替換，其餘法規條文、勾選方塊、文字、儲存格寬度百分之百保留原樣。</p>
+            </div>
+            <div class="flex items-start gap-2">
+              <span class="text-emerald-400 mt-0.5">🔹</span>
+              <p><strong class="text-slate-300 font-medium">嚴密隱私安全：</strong>所有 Word 解壓與 XML 替換皆在您的電腦瀏覽器記憶體內運算，不會將檔案上傳至任何伺服器。</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
+    <div class="max-w-[1600px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <p>公共危險物品場所自主檢查表 · 簽章自動化轉換系統</p>
+      <p class="font-mono text-slate-600">v2.1 · Zero-Server Pure Offline Engine</p>
+    </div>
+  </footer>
+
+  <!-- Core In-Browser Conversion Logic -->
+  <script>
+    // Theme Management
+    function initTheme() {
+      const savedTheme = localStorage.getItem('app-theme') || 'dark';
+      applyTheme(savedTheme);
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      applyTheme(isDark ? 'light' : 'dark');
+    }
+
+    function applyTheme(theme) {
+      const html = document.documentElement;
+      const themeIcon = document.getElementById('themeIcon');
+      const themeText = document.getElementById('themeText');
+      
+      if (theme === 'light') {
+        html.classList.remove('dark');
+        html.classList.add('light');
+        document.body.classList.remove('bg-[#060b14]', 'text-slate-100');
+        document.body.classList.add('bg-slate-50', 'text-slate-900');
+        if (themeIcon) themeIcon.textContent = '🌙';
+        if (themeText) themeText.textContent = '深色戰情室';
+      } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+        document.body.classList.remove('bg-slate-50', 'text-slate-900');
+        document.body.classList.add('bg-[#060b14]', 'text-slate-100');
+        if (themeIcon) themeIcon.textContent = '☀️';
+        if (themeText) themeText.textContent = '明亮模式';
+      }
+      localStorage.setItem('app-theme', theme);
+    }
+    initTheme();
+
+    // File State Management
+    let fileQueue = []; // array of { id, file, originalName, status, modifiedCount, resultBlob }
+    let isProcessing = false;
+
+    // Drag & Drop Setup
+    const dropZone = document.getElementById('dropZone');
+    ['dragenter', 'dragover'].forEach(name => {
+      dropZone.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('dragover-active');
+      });
+    });
+    ['dragleave', 'drop'].forEach(name => {
+      dropZone.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('dragover-active');
+      });
+    });
+    dropZone.addEventListener('drop', (e) => {
+      const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.docx') && !f.name.startsWith('~$'));
+      if (files.length > 0) {
+        addFiles(files);
+      }
+    });
+
+    function handleFileSelect(e) {
+      const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.docx') && !f.name.startsWith('~$'));
+      if (files.length > 0) {
+        addFiles(files);
+      }
+      e.target.value = '';
+    }
+
+    function addFiles(files) {
+      files.forEach(f => {
+        // avoid duplicate by name and size
+        if (!fileQueue.some(item => item.file.name === f.name && item.file.size === f.size)) {
+          fileQueue.push({
+            id: 'file_' + Math.random().toString(36).substr(2, 9),
+            file: f,
+            originalName: f.name,
+            size: f.size,
+            status: 'pending', // pending | converting | completed | error
+            modifiedCount: 0,
+            resultBlob: null,
+            errorMsg: ''
+          });
+        }
+      });
+      renderList();
+      processQueue();
+    }
+
+    function clearFiles() {
+      fileQueue = [];
+      renderList();
+    }
+
+    function renderList() {
+      const container = document.getElementById('fileListContainer');
+      const emptyState = document.getElementById('emptyState');
+      const fileBadgeCount = document.getElementById('fileBadgeCount');
+      const clearBtn = document.getElementById('clearBtn');
+      const downloadAllBtn = document.getElementById('downloadAllBtn');
+      
+      const statTotalFiles = document.getElementById('statTotalFiles');
+      const statConvertedFiles = document.getElementById('statConvertedFiles');
+      const statTotalTables = document.getElementById('statTotalTables');
+
+      fileBadgeCount.textContent = fileQueue.length;
+      statTotalFiles.textContent = fileQueue.length;
+      
+      const completedFiles = fileQueue.filter(f => f.status === 'completed');
+      statConvertedFiles.textContent = completedFiles.length;
+      
+      const totalTables = completedFiles.reduce((acc, cur) => acc + (cur.modifiedCount || 0), 0);
+      statTotalTables.textContent = totalTables;
+
+      downloadAllBtn.disabled = completedFiles.length === 0;
+
+      if (fileQueue.length === 0) {
+        emptyState.classList.remove('hidden');
+        container.innerHTML = '';
+        clearBtn.classList.add('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      clearBtn.classList.remove('hidden');
+
+      container.innerHTML = fileQueue.map(item => {
+        let statusBadge = '';
+        let actionBtn = '';
+
+        if (item.status === 'pending') {
+          statusBadge = '<span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">排隊中</span>';
+        } else if (item.status === 'converting') {
+          statusBadge = '<span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 animate-pulse font-mono">轉換中...</span>';
+        } else if (item.status === 'completed') {
+          statusBadge = `<span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 font-mono font-medium">✓ 已替換 ${item.modifiedCount} 處</span>`;
+          actionBtn = `<button onclick="downloadSingle('${item.id}')" class="touch-btn px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold flex items-center gap-1 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            下載
+          </button>`;
+        } else if (item.status === 'error') {
+          statusBadge = `<span class="text-xs px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 font-mono">失敗: ${item.errorMsg}</span>`;
+        }
+
+        const sizeFormatted = (item.size / 1024).toFixed(1) + ' KB';
+
+        return `
+          <div class="px-5 py-3 flex items-center justify-between hover:bg-slate-800/20 transition-colors">
+            <div class="flex items-center gap-3 overflow-hidden mr-3">
+              <div class="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 shrink-0">
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              </div>
+              <div class="truncate">
+                <h4 class="text-xs sm:text-sm font-medium text-slate-200 truncate" title="${item.originalName}">${item.originalName}</h4>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <span class="text-[11px] font-mono text-slate-500">${sizeFormatted}</span>
+                  ${statusBadge}
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0 flex items-center gap-2">
+              ${actionBtn}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function processQueue() {
+      if (isProcessing) return;
+      const nextItem = fileQueue.find(f => f.status === 'pending');
+      if (!nextItem) return;
+
+      isProcessing = true;
+      nextItem.status = 'converting';
+      renderList();
+
+      try {
+        const { blob, modifiedCount } = await convertDocxInBrowser(nextItem.file);
+        nextItem.status = 'completed';
+        nextItem.modifiedCount = modifiedCount;
+        nextItem.resultBlob = blob;
+      } catch (err) {
+        console.error('Conversion error:', err);
+        nextItem.status = 'error';
+        nextItem.errorMsg = err.message || '格式解析失敗';
+      }
+
+      isProcessing = false;
+      renderList();
+      processQueue();
+    }
+
+    // In-Browser DOCX XML Transformation Engine
+    async function convertDocxInBrowser(file) {
+      if (typeof JSZip === 'undefined') {
+        throw new Error('JSZip 函式庫未載入');
+      }
+
+      const zip = new JSZip();
+      const zipContent = await zip.loadAsync(file);
+      
+      const docXmlFile = zipContent.file('word/document.xml');
+      if (!docXmlFile) {
+        throw new Error('無效的 Word 檔案 (缺少 word/document.xml)');
+      }
+
+      const docXmlText = await docXmlFile.async('text');
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(docXmlText, 'text/xml');
+      
+      const W_URI = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+      const tables = Array.from(xmlDoc.getElementsByTagNameNS(W_URI, 'tbl'));
+      let modifiedTablesCount = 0;
+
+      tables.forEach(tbl => {
+        const rows = Array.from(tbl.getElementsByTagNameNS(W_URI, 'tr'));
+        const rowsToReplace = [];
+
+        rows.forEach((row, rIdx) => {
+          const text = row.textContent || '';
+          if (text.includes('管理權人或現場有關人員') && (text.includes('簽章') || text.includes('檢查及會同人員') || text.includes('審核人員'))) {
+            rowsToReplace.push({ row, rIdx });
+          }
+        });
+
+        // Replace from bottom to top
+        for (let i = rowsToReplace.length - 1; i >= 0; i--) {
+          const { row: targetRow } = rowsToReplace[i];
+          // 動態精準計算最佳比例：檢查日期約 20%~25%（窄欄），其餘約 75%~80% 均分給兩位簽署人
+          const gridEl = tbl.getElementsByTagNameNS(W_URI, 'tblGrid')[0];
+          const colCols = gridEl ? Array.from(gridEl.getElementsByTagNameNS(W_URI, 'gridCol')) : [];
+          const colWidths = colCols.map(c => parseInt(c.getAttributeNS(W_URI, 'w') || c.getAttribute('w:w')) || 0);
+          const totalW = colWidths.reduce((a, b) => a + b, 0);
+          const N = colWidths.length;
+
+          let w1, gs1, w2, gs2, w3, gs3;
+
+          if (N >= 3 && totalW > 0) {
+            const target1 = 0.22 * totalW;
+            const target2 = 0.39 * totalW;
+            const target3 = 0.39 * totalW;
+
+            let bestScore = Infinity;
+            let bestIJ = [1, 2];
+
+            for (let i = 1; i < N - 1; i++) {
+              const curW1 = colWidths.slice(0, i).reduce((a, b) => a + b, 0);
+              if (curW1 < 1200) continue;
+              for (let j = i + 1; j < N; j++) {
+                const curW2 = colWidths.slice(i, j).reduce((a, b) => a + b, 0);
+                const curW3 = colWidths.slice(j).reduce((a, b) => a + b, 0);
+                if (curW2 < 1500 || curW3 < 1500) continue;
+
+                const score = Math.abs(curW1 - target1) * 3.0 + Math.abs(curW2 - target2) + Math.abs(curW3 - target3) + Math.abs(curW2 - curW3) * 0.5;
+                if (score < bestScore) {
+                  bestScore = score;
+                  bestIJ = [i, j];
+                }
+              }
+            }
+
+            const [optI, optJ] = bestIJ;
+            w1 = colWidths.slice(0, optI).reduce((a, b) => a + b, 0);
+            w2 = colWidths.slice(optI, optJ).reduce((a, b) => a + b, 0);
+            w3 = colWidths.slice(optJ).reduce((a, b) => a + b, 0);
+            gs1 = optI;
+            gs2 = optJ - optI;
+            gs3 = N - optJ;
+          } else {
+            const cells = Array.from(targetRow.getElementsByTagNameNS(W_URI, 'tc'));
+            function getCellWidth(tc) {
+              const wEl = tc.getElementsByTagNameNS(W_URI, 'tcW')[0];
+              return wEl ? (parseInt(wEl.getAttributeNS(W_URI, 'w') || wEl.getAttribute('w:w')) || 0) : 0;
+            }
+            function getCellGridSpan(tc) {
+              const gsEl = tc.getElementsByTagNameNS(W_URI, 'gridSpan')[0];
+              return gsEl ? (parseInt(gsEl.getAttributeNS(W_URI, 'val') || gsEl.getAttribute('w:val')) || 1) : 1;
+            }
+
+            const tot = cells.reduce((acc, c) => acc + getCellWidth(c), 0) || 10340;
+            const totGs = cells.reduce((acc, c) => acc + getCellGridSpan(c), 0) || 6;
+            w1 = Math.round(tot * 0.22);
+            w2 = Math.round((tot - w1) / 2);
+            w3 = tot - w1 - w2;
+            gs1 = Math.max(1, Math.round(totGs * 0.22));
+            gs2 = Math.max(1, Math.round((totGs - gs1) / 2));
+            gs3 = Math.max(1, totGs - gs1 - gs2);
+          }
+
+          const specs = [
+            { label: '檢查日期：', w: w1, gs: gs1 },
+            { label: '保安檢查員簽名：', w: w2, gs: gs2 },
+            { label: '保安監督人複核簽名：', w: w3, gs: gs3 }
+          ];
+
+          // Create new w:tr
+          const newTr = xmlDoc.createElementNS(W_URI, 'w:tr');
+          const trPr = xmlDoc.createElementNS(W_URI, 'w:trPr');
+          trPr.appendChild(xmlDoc.createElementNS(W_URI, 'w:cantSplit'));
+          
+          const trHeight = xmlDoc.createElementNS(W_URI, 'w:trHeight');
+          trHeight.setAttributeNS(W_URI, 'w:val', '700'); // 充足行高供手寫簽名蓋章
+          trPr.appendChild(trHeight);
+          
+          const jc = xmlDoc.createElementNS(W_URI, 'w:jc');
+          jc.setAttributeNS(W_URI, 'w:val', 'center');
+          trPr.appendChild(jc);
+          newTr.appendChild(trPr);
+
+          specs.forEach((spec, sIdx) => {
+            const isFirst = (sIdx === 0);
+            const isLast = (sIdx === specs.length - 1);
+
+            const tc = xmlDoc.createElementNS(W_URI, 'w:tc');
+            const tcPr = xmlDoc.createElementNS(W_URI, 'w:tcPr');
+            
+            const tcW = xmlDoc.createElementNS(W_URI, 'w:tcW');
+            tcW.setAttributeNS(W_URI, 'w:w', String(spec.w));
+            tcW.setAttributeNS(W_URI, 'w:type', 'dxa');
+            tcPr.appendChild(tcW);
+
+            if (spec.gs > 1) {
+              const gridSpan = xmlDoc.createElementNS(W_URI, 'w:gridSpan');
+              gridSpan.setAttributeNS(W_URI, 'w:val', String(spec.gs));
+              tcPr.appendChild(gridSpan);
+            }
+
+            // tcBorders: 完整表格外框實線與內部直隔線
+            const tcBorders = xmlDoc.createElementNS(W_URI, 'w:tcBorders');
+            
+            const topB = xmlDoc.createElementNS(W_URI, 'w:top');
+            topB.setAttributeNS(W_URI, 'w:val', 'single');
+            topB.setAttributeNS(W_URI, 'w:sz', '12');
+            topB.setAttributeNS(W_URI, 'w:space', '0');
+            topB.setAttributeNS(W_URI, 'w:color', 'auto');
+            tcBorders.appendChild(topB);
+
+            const bottomB = xmlDoc.createElementNS(W_URI, 'w:bottom');
+            bottomB.setAttributeNS(W_URI, 'w:val', 'single');
+            bottomB.setAttributeNS(W_URI, 'w:sz', '12');
+            bottomB.setAttributeNS(W_URI, 'w:space', '0');
+            bottomB.setAttributeNS(W_URI, 'w:color', 'auto');
+            tcBorders.appendChild(bottomB);
+
+            const leftB = xmlDoc.createElementNS(W_URI, 'w:left');
+            leftB.setAttributeNS(W_URI, 'w:val', 'single');
+            leftB.setAttributeNS(W_URI, 'w:sz', isFirst ? '12' : '4');
+            leftB.setAttributeNS(W_URI, 'w:space', '0');
+            leftB.setAttributeNS(W_URI, 'w:color', 'auto');
+            tcBorders.appendChild(leftB);
+
+            const rightB = xmlDoc.createElementNS(W_URI, 'w:right');
+            rightB.setAttributeNS(W_URI, 'w:val', 'single');
+            rightB.setAttributeNS(W_URI, 'w:sz', isLast ? '12' : '4');
+            rightB.setAttributeNS(W_URI, 'w:space', '0');
+            rightB.setAttributeNS(W_URI, 'w:color', 'auto');
+            tcBorders.appendChild(rightB);
+
+            tcPr.appendChild(tcBorders);
+
+            const vAlign = xmlDoc.createElementNS(W_URI, 'w:vAlign');
+            vAlign.setAttributeNS(W_URI, 'w:val', 'center');
+            tcPr.appendChild(vAlign);
+            tc.appendChild(tcPr);
+
+            // w:p 靠左對齊，預留手寫簽名蓋章空間
+            const p = xmlDoc.createElementNS(W_URI, 'w:p');
+            const pPr = xmlDoc.createElementNS(W_URI, 'w:pPr');
+            
+            const spacing = xmlDoc.createElementNS(W_URI, 'w:spacing');
+            spacing.setAttributeNS(W_URI, 'w:line', '280');
+            spacing.setAttributeNS(W_URI, 'w:lineRule', 'exact');
+            pPr.appendChild(spacing);
+
+            const pJc = xmlDoc.createElementNS(W_URI, 'w:jc');
+            pJc.setAttributeNS(W_URI, 'w:val', 'left');
+            pPr.appendChild(pJc);
+
+            const ind = xmlDoc.createElementNS(W_URI, 'w:ind');
+            ind.setAttributeNS(W_URI, 'w:left', '100');
+            pPr.appendChild(ind);
+
+            const rPr_p = xmlDoc.createElementNS(W_URI, 'w:rPr');
+            const rFonts_p = xmlDoc.createElementNS(W_URI, 'w:rFonts');
+            rFonts_p.setAttributeNS(W_URI, 'w:ascii', '標楷體');
+            rFonts_p.setAttributeNS(W_URI, 'w:eastAsia', '標楷體');
+            rFonts_p.setAttributeNS(W_URI, 'w:hAnsi', '標楷體');
+            rPr_p.appendChild(rFonts_p);
+
+            const sz_p = xmlDoc.createElementNS(W_URI, 'w:sz');
+            sz_p.setAttributeNS(W_URI, 'w:val', '20'); // 10pt (精簡小字，擴大手寫空間)
+            rPr_p.appendChild(sz_p);
+            pPr.appendChild(rPr_p);
+            p.appendChild(pPr);
+
+            // w:r & w:t
+            const r = xmlDoc.createElementNS(W_URI, 'w:r');
+            const rPr = xmlDoc.createElementNS(W_URI, 'w:rPr');
+            const rFonts = xmlDoc.createElementNS(W_URI, 'w:rFonts');
+            rFonts.setAttributeNS(W_URI, 'w:ascii', '標楷體');
+            rFonts.setAttributeNS(W_URI, 'w:eastAsia', '標楷體');
+            rFonts.setAttributeNS(W_URI, 'w:hAnsi', '標楷體');
+            rFonts.setAttributeNS(W_URI, 'w:hint', 'eastAsia');
+            rPr.appendChild(rFonts);
+
+            const sz = xmlDoc.createElementNS(W_URI, 'w:sz');
+            sz.setAttributeNS(W_URI, 'w:val', '20'); // 10pt
+            rPr.appendChild(sz);
+            r.appendChild(rPr);
+
+            const t = xmlDoc.createElementNS(W_URI, 'w:t');
+            t.textContent = spec.label;
+            r.appendChild(t);
+            p.appendChild(r);
+
+            tc.appendChild(p);
+            newTr.appendChild(tc);
+          });
+
+          // In tbl, remove next row (handwritten signature line) and replace targetRow with newTr
+          const nextRow = targetRow.nextElementSibling;
+          if (nextRow && nextRow.localName === 'tr') {
+            tbl.removeChild(nextRow);
+          }
+          tbl.replaceChild(newTr, targetRow);
+          modifiedTablesCount++;
+        }
+      });
+
+      // Serialize modified XML
+      const serializer = new XMLSerializer();
+      const newXmlText = serializer.serializeToString(xmlDoc);
+      
+      // Update document.xml in ZIP
+      zip.file('word/document.xml', newXmlText);
+
+      // Generate blob
+      const outBlob = await zip.generateAsync({
+        type: 'blob',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        compression: 'DEFLATE'
+      });
+
+      return { blob: outBlob, modifiedCount: modifiedTablesCount };
+    }
+
+    // Download helpers
+    function downloadSingle(id) {
+      const item = fileQueue.find(f => f.id === id);
+      if (!item || !item.resultBlob) return;
+      saveBlob(item.resultBlob, item.originalName);
+    }
+
+    async function downloadAllAsZip() {
+      const completedFiles = fileQueue.filter(f => f.status === 'completed' && f.resultBlob);
+      if (completedFiles.length === 0) return;
+
+      if (completedFiles.length === 1) {
+        saveBlob(completedFiles[0].resultBlob, completedFiles[0].originalName);
+        return;
+      }
+
+      const zip = new JSZip();
+      completedFiles.forEach(f => {
+        zip.file(f.originalName, f.resultBlob);
+      });
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      saveBlob(zipBlob, '危險物品自主檢查表_已更新簽章.zip');
+    }
+
+    function saveBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 500);
+    }
+  </script>
+</body>
+</html>
