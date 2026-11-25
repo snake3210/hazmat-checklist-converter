@@ -291,8 +291,16 @@
           <!-- Policy & Safety Notes -->
           <div class="pt-2 border-t border-slate-800 space-y-2 text-xs text-slate-400">
             <div class="flex items-start gap-2">
+              <span class="text-rose-400 mt-0.5">🧹</span>
+              <p><strong class="text-slate-300 font-medium">自動清理第一頁聯合檢查表：</strong>若檔案開頭附帶「高雄市公共危險物品場所聯合檢查表」，系統將自動刪除該頁，統一從「附件4 消防安全檢查紀錄表」開始保留。</p>
+            </div>
+            <div class="flex items-start gap-2">
+              <span class="text-amber-400 mt-0.5">🧹</span>
+              <p><strong class="text-slate-300 font-medium">自動刪除抽查自主檢查表備註列：</strong>自動偵測並移除「備註｜抽查　年「　」月自主檢查表：□符合規定 □不符合規定」整列。</p>
+            </div>
+            <div class="flex items-start gap-2">
               <span class="text-cyan-400 mt-0.5">🔹</span>
-              <p><strong class="text-slate-300 font-medium">絕對不更動其他部分：</strong>程式只鎖定包含管理權人與簽章的原表格列進行精準替換，其餘法規條文、勾選方塊、文字、儲存格寬度百分之百保留原樣。</p>
+              <p><strong class="text-slate-300 font-medium">絕對不更動其他部分：</strong>其餘法規條文、勾選方塊、文字、儲存格寬度百分之百保留原樣。</p>
             </div>
             <div class="flex items-start gap-2">
               <span class="text-emerald-400 mt-0.5">🔹</span>
@@ -311,7 +319,7 @@
   <footer class="mt-auto border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
     <div class="max-w-[1600px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
       <p>公共危險物品場所自主檢查表 · 簽章自動化轉換系統</p>
-      <p class="font-mono text-slate-600">v2.1 · Zero-Server Pure Offline Engine</p>
+      <p class="font-mono text-slate-600">v2.3 · Zero-Server Pure Offline Engine</p>
     </div>
   </footer>
 
@@ -453,7 +461,14 @@
         } else if (item.status === 'converting') {
           statusBadge = '<span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 animate-pulse font-mono">轉換中...</span>';
         } else if (item.status === 'completed') {
-          statusBadge = `<span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 font-mono font-medium">✓ 已替換 ${item.modifiedCount} 處</span>`;
+          let extraTags = '';
+          if (item.removedJoint) {
+            extraTags += `<span class="text-[11px] px-2 py-0.5 rounded-full bg-rose-950/70 text-rose-300 border border-rose-600/40 font-mono">刪聯合表</span>`;
+          }
+          if (item.removedChoucha > 0) {
+            extraTags += `<span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-950/70 text-amber-300 border border-amber-600/40 font-mono">刪抽查列</span>`;
+          }
+          statusBadge = `<span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 font-mono font-medium">✓ 簽章 ${item.modifiedCount} 處</span> ${extraTags}`;
           actionBtn = `<button onclick="downloadSingle('${item.id}')" class="touch-btn px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold flex items-center gap-1 transition">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             下載
@@ -496,9 +511,11 @@
       renderList();
 
       try {
-        const { blob, modifiedCount } = await convertDocxInBrowser(nextItem.file);
+        const { blob, modifiedCount, removedJoint, removedChoucha } = await convertDocxInBrowser(nextItem.file);
         nextItem.status = 'completed';
         nextItem.modifiedCount = modifiedCount;
+        nextItem.removedJoint = removedJoint;
+        nextItem.removedChoucha = removedChoucha;
         nextItem.resultBlob = blob;
       } catch (err) {
         console.error('Conversion error:', err);
@@ -530,11 +547,56 @@
       const xmlDoc = parser.parseFromString(docXmlText, 'text/xml');
       
       const W_URI = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-      const tables = Array.from(xmlDoc.getElementsByTagNameNS(W_URI, 'tbl'));
+      let removedJoint = false;
+      let removedChoucha = 0;
       let modifiedTablesCount = 0;
 
+      // 1. 若開頭有「聯合檢查表」，刪除該頁直到「附件4」之前
+      const body = xmlDoc.getElementsByTagNameNS(W_URI, 'body')[0];
+      if (body) {
+        const children = Array.from(body.children);
+        let jointIdx = -1;
+        let att4Idx = -1;
+        const scanLimit = Math.min(children.length, 15);
+        for (let idx = 0; idx < scanLimit; idx++) {
+          const txt = (children[idx].textContent || '').trim();
+          if (txt.includes('聯合檢查表') && jointIdx === -1) {
+            jointIdx = idx;
+          }
+          if ((txt.includes('附件4') || txt.includes('附件４') || txt.includes('消防安全檢查紀錄表')) && att4Idx === -1) {
+            att4Idx = idx;
+          }
+        }
+        if (jointIdx !== -1 && att4Idx > jointIdx) {
+          for (let idx = 0; idx < att4Idx; idx++) {
+            body.removeChild(children[idx]);
+          }
+          // 若附件4段落本身有 pageBreakBefore，一併移除避免開頭空白頁
+          const att4El = children[att4Idx];
+          const pPr = Array.from(att4El.children).find(el => el.localName === 'pPr');
+          if (pPr) {
+            const pbb = Array.from(pPr.children).find(el => el.localName === 'pageBreakBefore');
+            if (pbb) pPr.removeChild(pbb);
+          }
+          removedJoint = true;
+        }
+      }
+
+      const tables = Array.from(xmlDoc.getElementsByTagNameNS(W_URI, 'tbl'));
+
       tables.forEach(tbl => {
-        const rows = Array.from(tbl.getElementsByTagNameNS(W_URI, 'tr'));
+        // 2. 刪除「備註｜抽查 年「 」月自主檢查表」列
+        const directRows = Array.from(tbl.children).filter(el => el.localName === 'tr');
+        directRows.forEach(row => {
+          const text = row.textContent || '';
+          if (text.includes('抽查') && text.includes('自主檢查表')) {
+            tbl.removeChild(row);
+            removedChoucha++;
+          }
+        });
+
+        // 3. 替換簽章列
+        const rows = Array.from(tbl.children).filter(el => el.localName === 'tr');
         const rowsToReplace = [];
 
         rows.forEach((row, rIdx) => {
@@ -762,7 +824,7 @@
         compression: 'DEFLATE'
       });
 
-      return { blob: outBlob, modifiedCount: modifiedTablesCount };
+      return { blob: outBlob, modifiedCount: modifiedTablesCount, removedJoint, removedChoucha };
     }
 
     // Download helpers

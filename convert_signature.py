@@ -122,11 +122,14 @@ def create_new_signature_row(labels_with_specs):
 
 def convert_docx_file(src_path, dst_path):
     """
-    轉換單一 docx 檔案：僅修改簽章列，保留其他所有內容。
-    傳回 (成功與否, 修改表格數)
+    轉換單一 docx 檔案：
+    1. 若開頭有「高雄市公共危險物品場所聯合檢查表」，刪除該頁直到「附件4」開頭。
+    2. 刪除表格中的「備註｜抽查 年「 」月自主檢查表」列。
+    3. 僅修改舊版簽章列為新版三欄簽章列，保留其他所有內容。
+    傳回 (成功與否, 統計資訊 dict)
     """
     if not os.path.exists(src_path):
-        return False, 0
+        return False, {'signatures': 0, 'removed_joint': False, 'removed_choucha': 0}
         
     os.makedirs(os.path.dirname(os.path.abspath(dst_path)), exist_ok=True)
     
@@ -134,10 +137,47 @@ def convert_docx_file(src_path, dst_path):
         xml_content = zin.read('word/document.xml')
         root = ET.fromstring(xml_content)
         
-        tables = root.findall('.//w:tbl', NS)
+        removed_joint = False
+        removed_choucha = 0
         modified_count = 0
         
+        # 1. 偵測並移除第一頁「聯合檢查表」（從頭刪到「附件4」之前）
+        body = root.find('./w:body', NS)
+        if body is not None:
+            children = list(body)
+            joint_idx = -1
+            att4_idx = -1
+            for idx, child in enumerate(children[:15]):
+                txt = ''.join(t.text for t in child.findall('.//w:t', NS) if t.text).strip()
+                if '聯合檢查表' in txt and joint_idx == -1:
+                    joint_idx = idx
+                if ('附件4' in txt or '附件４' in txt or '消防安全檢查紀錄表' in txt) and att4_idx == -1:
+                    att4_idx = idx
+            
+            if joint_idx != -1 and att4_idx > joint_idx:
+                for el in children[:att4_idx]:
+                    body.remove(el)
+                # 若附件4段落本身有 pageBreakBefore，一併移除避免開頭空白頁
+                att4_el = children[att4_idx]
+                pPr = att4_el.find('./w:pPr', NS)
+                if pPr is not None:
+                    pbb = pPr.find('./w:pageBreakBefore', NS)
+                    if pbb is not None:
+                        pPr.remove(pbb)
+                removed_joint = True
+        
+        tables = root.findall('.//w:tbl', NS)
+        
         for tbl in tables:
+            # 2. 刪除「備註｜抽查 年「 」月自主檢查表」列
+            rows = tbl.findall('./w:tr', NS)
+            for row in rows:
+                text = ''.join([t.text for t in row.findall('.//w:t', NS) if t.text])
+                if '抽查' in text and '自主檢查表' in text:
+                    tbl.remove(row)
+                    removed_choucha += 1
+
+            # 3. 替換簽章列
             rows = tbl.findall('./w:tr', NS)
             rows_to_replace = []
             
@@ -237,7 +277,11 @@ def convert_docx_file(src_path, dst_path):
         os.remove(dst_path)
     os.rename(temp_dst, dst_path)
     
-    return True, modified_count
+    return True, {
+        'signatures': modified_count,
+        'removed_joint': removed_joint,
+        'removed_choucha': removed_choucha
+    }
 
 
 def process_targets(targets, output_folder=None):
@@ -260,12 +304,14 @@ def process_targets(targets, output_folder=None):
         return
         
     print("=" * 65)
-    print(f"  公共危險物品場所自主檢查表 - 簽章欄自動轉換程式 (v2.2)")
+    print(f"  公共危險物品場所自主檢查表 - 自動轉換程式 (v2.3)")
     print(f"  待處理檔案數量：{len(files_to_process)} 個")
     print("=" * 65)
     
     success_count = 0
     total_tables = 0
+    total_joint = 0
+    total_choucha = 0
     
     for i, src_file in enumerate(files_to_process, 1):
         file_dir = os.path.dirname(os.path.abspath(src_file))
@@ -279,18 +325,30 @@ def process_targets(targets, output_folder=None):
         dst_file = os.path.join(dest_dir, file_name)
         
         try:
-            ok, count = convert_docx_file(src_file, dst_file)
+            ok, stats = convert_docx_file(src_file, dst_file)
             if ok:
                 success_count += 1
-                total_tables += count
-                print(f"[{i:02d}/{len(files_to_process):02d}] 成功轉換 ({count:02d} 個表格): {file_name}")
+                sig_cnt = stats['signatures']
+                total_tables += sig_cnt
+                if stats['removed_joint']:
+                    total_joint += 1
+                total_choucha += stats['removed_choucha']
+                tags = [f"簽章{sig_cnt:02d}處"]
+                if stats['removed_joint']:
+                    tags.append("刪聯合表")
+                if stats['removed_choucha'] > 0:
+                    tags.append(f"刪抽查列x{stats['removed_choucha']}")
+                print(f"[{i:02d}/{len(files_to_process):02d}] 成功 ({' / '.join(tags)}): {file_name}")
             else:
                 print(f"[{i:02d}/{len(files_to_process):02d}] 失敗: {file_name}")
         except Exception as e:
             print(f"[{i:02d}/{len(files_to_process):02d}] 發生錯誤: {file_name} -> {e}")
             
     print("=" * 65)
-    print(f"  處理完畢！成功處理 {success_count} 個檔案，共替換 {total_tables} 處簽章表格。")
+    print(f"  處理完畢！成功處理 {success_count} 個檔案：")
+    print(f"  - 替換簽章表格：{total_tables} 處")
+    print(f"  - 刪除聯合檢查表：{total_joint} 份")
+    print(f"  - 刪除抽查自主檢查表備註列：{total_choucha} 列")
     print(f"  轉換後的檔案已儲存至：")
     if output_folder:
         print(f"  -> {os.path.abspath(output_folder)}")
