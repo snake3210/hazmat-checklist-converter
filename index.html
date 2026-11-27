@@ -36,6 +36,8 @@
       document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>');
     }
   </script>
+  <!-- 附件10 範本資料 (30倍以上 / 30倍以下) -->
+  <script src="templates_att10.js"></script>
 
   <style>
     /* Custom Scrollbar */
@@ -175,7 +177,16 @@
             支援單檔、多選批次檔案，或是直接點擊下方按鈕選取
           </p>
 
-          <div class="flex items-center justify-center gap-3 mt-5">
+          <div class="flex flex-wrap items-center justify-center gap-2 mt-4">
+            <span class="text-xs text-slate-400">適用倍數模式：</span>
+            <select id="modeSelect" class="bg-slate-900 border border-slate-700 text-cyan-300 text-xs rounded-lg px-3 py-1.5 font-medium focus:outline-none focus:border-cyan-400">
+              <option value="auto" selected>✨ 自動判斷（依保安監督人／合計倍數）</option>
+              <option value="above">🔥 強制 30 倍以上（保安監督人／保安檢查員）</option>
+              <option value="below">📋 強制 30 倍以下（專人簽章）</option>
+            </select>
+          </div>
+
+          <div class="flex items-center justify-center gap-3 mt-4">
             <button type="button" onclick="document.getElementById('fileInput').click()" class="touch-btn px-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
               選擇多個檔案
@@ -266,23 +277,20 @@
             <div class="flex items-center justify-between text-xs">
               <span class="font-bold text-emerald-400 flex items-center gap-1">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                轉換後新簽名列（最新標準 · 完整邊框 · 靠左留白簽章）
+                11308起適用範例標準（附件10主表 ＋ 表格外簽章）
               </span>
-              <span class="text-[11px] text-emerald-400 font-mono">現行法定標準</span>
+              <span class="text-[11px] text-emerald-400 font-mono">v3.0 最新範本</span>
             </div>
-            <div class="p-3.5 rounded-lg bg-emerald-950/20 border border-emerald-500/40 text-xs font-mono leading-relaxed">
-              <div class="border border-slate-700 grid grid-cols-12 divide-x divide-slate-700 bg-slate-900/80 rounded">
-                <div class="col-span-3 p-2 text-left text-slate-200">
-                  <div class="text-cyan-300 font-medium text-xs">檢查日期：</div>
-                  <div class="text-[10px] text-slate-500 mt-2 font-mono">（留白供手寫日期）</div>
-                </div>
-                <div class="col-span-4 p-2 text-left text-slate-200">
-                  <div class="text-emerald-300 font-medium text-xs">保安檢查員簽名：</div>
-                  <div class="text-[10px] text-slate-500 mt-2 font-mono">（留白供簽名蓋章）</div>
-                </div>
-                <div class="col-span-5 p-2 text-left text-slate-200">
-                  <div class="text-amber-300 font-medium text-xs">保安監督人複核簽名：</div>
-                  <div class="text-[10px] text-slate-500 mt-2 font-mono">（留白供覆核簽章）</div>
+            <div class="p-3.5 rounded-lg bg-emerald-950/20 border border-emerald-500/40 text-xs space-y-2.5">
+              <div class="p-2.5 rounded bg-slate-900/80 border border-slate-700/80 text-slate-200">
+                <div class="font-bold text-cyan-300 text-xs">① 首頁自動替換為「附件10 公共危險物品保安監督自主檢查表」</div>
+                <div class="text-[11px] text-slate-400 mt-1">自動移除「聯合檢查表」與原「附件4」，並將原檔的場所名稱、地址、電話、管理權人、保安監督人自動帶入附件10。</div>
+              </div>
+              <div class="p-2.5 rounded bg-slate-900/80 border border-slate-700/80 text-slate-200">
+                <div class="font-bold text-emerald-300 text-xs">② 各附表（附表三～附表十二）表格內舊簽章移除，改置表格下方：</div>
+                <div class="mt-1.5 flex flex-wrap gap-2 font-mono text-[11px]">
+                  <span class="px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-600/40 text-cyan-200">30倍以上：保安檢查員簽章：</span>
+                  <span class="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-600/40 text-amber-200">30倍以下：專人簽章：</span>
                 </div>
               </div>
             </div>
@@ -292,15 +300,11 @@
           <div class="pt-2 border-t border-slate-800 space-y-2 text-xs text-slate-400">
             <div class="flex items-start gap-2">
               <span class="text-rose-400 mt-0.5">🧹</span>
-              <p><strong class="text-slate-300 font-medium">自動清理第一頁聯合檢查表：</strong>若檔案開頭附帶「高雄市公共危險物品場所聯合檢查表」，系統將自動刪除該頁，統一從「附件4 消防安全檢查紀錄表」開始保留。</p>
-            </div>
-            <div class="flex items-start gap-2">
-              <span class="text-amber-400 mt-0.5">🧹</span>
-              <p><strong class="text-slate-300 font-medium">自動刪除抽查自主檢查表備註列：</strong>自動偵測並移除「備註｜抽查　年「　」月自主檢查表：□符合規定 □不符合規定」整列。</p>
+              <p><strong class="text-slate-300 font-medium">自動清理舊表頭與抽查列：</strong>自動刪除第一頁聯合檢查表、原附件4（含抽查自主檢查表備註列），乾淨銜接各附表。</p>
             </div>
             <div class="flex items-start gap-2">
               <span class="text-cyan-400 mt-0.5">🔹</span>
-              <p><strong class="text-slate-300 font-medium">絕對不更動其他部分：</strong>其餘法規條文、勾選方塊、文字、儲存格寬度百分之百保留原樣。</p>
+              <p><strong class="text-slate-300 font-medium">絕對不更動檢查細目：</strong>附表三～附表十二的所有法規條文、勾選方塊、儲槽與物質數量百分之百保留原樣。</p>
             </div>
             <div class="flex items-start gap-2">
               <span class="text-emerald-400 mt-0.5">🔹</span>
@@ -319,7 +323,7 @@
   <footer class="mt-auto border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
     <div class="max-w-[1600px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
       <p>公共危險物品場所自主檢查表 · 簽章自動化轉換系統</p>
-      <p class="font-mono text-slate-600">v2.3 · Zero-Server Pure Offline Engine</p>
+      <p class="font-mono text-slate-600">v3.0 · 11308範例標準 · Zero-Server Pure Offline Engine</p>
     </div>
   </footer>
 
@@ -462,13 +466,16 @@
           statusBadge = '<span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 animate-pulse font-mono">轉換中...</span>';
         } else if (item.status === 'completed') {
           let extraTags = '';
-          if (item.removedJoint) {
-            extraTags += `<span class="text-[11px] px-2 py-0.5 rounded-full bg-rose-950/70 text-rose-300 border border-rose-600/40 font-mono">刪聯合表</span>`;
+          if (item.modeLabel) {
+            const modeColor = item.modeLabel === '30倍以上'
+              ? 'bg-cyan-950/70 text-cyan-300 border-cyan-600/40'
+              : 'bg-amber-950/70 text-amber-300 border-amber-600/40';
+            extraTags += `<span class="text-[11px] px-2 py-0.5 rounded-full border font-mono ${modeColor}">${item.modeLabel}</span>`;
           }
-          if (item.removedChoucha > 0) {
-            extraTags += `<span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-950/70 text-amber-300 border border-amber-600/40 font-mono">刪抽查列</span>`;
+          if (item.insertedAtt10) {
+            extraTags += `<span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-950/70 text-indigo-300 border border-indigo-600/40 font-mono">換附件10</span>`;
           }
-          statusBadge = `<span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 font-mono font-medium">✓ 簽章 ${item.modifiedCount} 處</span> ${extraTags}`;
+          statusBadge = `${extraTags} <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 font-mono font-medium">✓ 附表簽章 ${item.modifiedCount} 處</span>`;
           actionBtn = `<button onclick="downloadSingle('${item.id}')" class="touch-btn px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold flex items-center gap-1 transition">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             下載
@@ -510,13 +517,15 @@
       nextItem.status = 'converting';
       renderList();
 
+      const selectedMode = (document.getElementById('modeSelect') || {}).value || 'auto';
+
       try {
-        const { blob, modifiedCount, removedJoint, removedChoucha } = await convertDocxInBrowser(nextItem.file);
+        const res = await convertDocxInBrowser(nextItem.file, selectedMode);
         nextItem.status = 'completed';
-        nextItem.modifiedCount = modifiedCount;
-        nextItem.removedJoint = removedJoint;
-        nextItem.removedChoucha = removedChoucha;
-        nextItem.resultBlob = blob;
+        nextItem.modifiedCount = res.modifiedCount;
+        nextItem.insertedAtt10 = res.insertedAtt10;
+        nextItem.modeLabel = res.modeLabel;
+        nextItem.resultBlob = res.blob;
       } catch (err) {
         console.error('Conversion error:', err);
         nextItem.status = 'error';
@@ -528,15 +537,75 @@
       processQueue();
     }
 
-    // In-Browser DOCX XML Transformation Engine
-    async function convertDocxInBrowser(file) {
+    function escapeXml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+
+    function createSignatureParagraph(xmlDoc, W_URI, sigText) {
+      const p = xmlDoc.createElementNS(W_URI, 'w:p');
+      const pPr = xmlDoc.createElementNS(W_URI, 'w:pPr');
+      pPr.appendChild(xmlDoc.createElementNS(W_URI, 'w:widowControl'));
+      const spacing = xmlDoc.createElementNS(W_URI, 'w:spacing');
+      spacing.setAttributeNS(W_URI, 'w:before', '120');
+      spacing.setAttributeNS(W_URI, 'w:after', '120');
+      pPr.appendChild(spacing);
+
+      const rPrP = xmlDoc.createElementNS(W_URI, 'w:rPr');
+      const rFontsP = xmlDoc.createElementNS(W_URI, 'w:rFonts');
+      rFontsP.setAttributeNS(W_URI, 'w:ascii', '標楷體');
+      rFontsP.setAttributeNS(W_URI, 'w:eastAsia', '標楷體');
+      rFontsP.setAttributeNS(W_URI, 'w:hAnsi', '標楷體');
+      rPrP.appendChild(rFontsP);
+      rPrP.appendChild(xmlDoc.createElementNS(W_URI, 'w:b'));
+      rPrP.appendChild(xmlDoc.createElementNS(W_URI, 'w:bCs'));
+      const szP = xmlDoc.createElementNS(W_URI, 'w:sz');
+      szP.setAttributeNS(W_URI, 'w:val', '24');
+      rPrP.appendChild(szP);
+      pPr.appendChild(rPrP);
+      p.appendChild(pPr);
+
+      const r = xmlDoc.createElementNS(W_URI, 'w:r');
+      const rPr = xmlDoc.createElementNS(W_URI, 'w:rPr');
+      const rFonts = xmlDoc.createElementNS(W_URI, 'w:rFonts');
+      rFonts.setAttributeNS(W_URI, 'w:ascii', '標楷體');
+      rFonts.setAttributeNS(W_URI, 'w:eastAsia', '標楷體');
+      rFonts.setAttributeNS(W_URI, 'w:hAnsi', '標楷體');
+      rFonts.setAttributeNS(W_URI, 'w:hint', 'eastAsia');
+      rPr.appendChild(rFonts);
+      rPr.appendChild(xmlDoc.createElementNS(W_URI, 'w:b'));
+      rPr.appendChild(xmlDoc.createElementNS(W_URI, 'w:bCs'));
+      const color = xmlDoc.createElementNS(W_URI, 'w:color');
+      color.setAttributeNS(W_URI, 'w:val', '000000');
+      rPr.appendChild(color);
+      const sz = xmlDoc.createElementNS(W_URI, 'w:sz');
+      sz.setAttributeNS(W_URI, 'w:val', '24');
+      rPr.appendChild(sz);
+      r.appendChild(rPr);
+
+      const t = xmlDoc.createElementNS(W_URI, 'w:t');
+      t.textContent = sigText;
+      r.appendChild(t);
+      p.appendChild(r);
+      return p;
+    }
+
+    // In-Browser DOCX XML Transformation Engine (v3.0 - 11308範例標準)
+    async function convertDocxInBrowser(file, mode = 'auto') {
       if (typeof JSZip === 'undefined') {
         throw new Error('JSZip 函式庫未載入');
+      }
+      if (typeof window.ATT10_TEMPLATES === 'undefined') {
+        throw new Error('附件10 範本資料 (templates_att10.js) 未載入');
       }
 
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(file);
-      
+
       const docXmlFile = zipContent.file('word/document.xml');
       if (!docXmlFile) {
         throw new Error('無效的 Word 檔案 (缺少 word/document.xml)');
@@ -545,286 +614,233 @@
       const docXmlText = await docXmlFile.async('text');
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(docXmlText, 'text/xml');
-      
-      const W_URI = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-      let removedJoint = false;
-      let removedChoucha = 0;
-      let modifiedTablesCount = 0;
 
-      // 1. 若開頭有「聯合檢查表」，刪除該頁直到「附件4」之前
+      const W_URI = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+      const SUBTABLE_KEYWORDS = ['附表三', '附表四', '附表五', '附表六', '附表七', '附表八', '附表九', '附表十', '附表十一', '附表十二'];
       const body = xmlDoc.getElementsByTagNameNS(W_URI, 'body')[0];
-      if (body) {
-        const children = Array.from(body.children);
-        let jointIdx = -1;
-        let att4Idx = -1;
-        const scanLimit = Math.min(children.length, 15);
-        for (let idx = 0; idx < scanLimit; idx++) {
-          const txt = (children[idx].textContent || '').trim();
-          if (txt.includes('聯合檢查表') && jointIdx === -1) {
-            jointIdx = idx;
-          }
-          if ((txt.includes('附件4') || txt.includes('附件４') || txt.includes('消防安全檢查紀錄表')) && att4Idx === -1) {
-            att4Idx = idx;
+      if (!body) throw new Error('無效的 Word 文件結構');
+
+      // 1. 擷取基本資料並偵測 30倍以上 / 30倍以下
+      const info = {
+        SITE_NAME: '', SITE_PHONE: '', SITE_ADDR: '',
+        OWNER_NAME: '', OWNER_PHONE: '', OWNER_ID: '',
+        SUPERVISOR_NAME: '', SUPERVISOR_PHONE: '', SUPERVISOR_ID: ''
+      };
+      let jointName = '';
+      let jointAddr = '';
+      let att4TblIdx = -1;
+      const initialChildren = Array.from(body.children);
+
+      initialChildren.forEach((ch, idx) => {
+        if (ch.localName !== 'tbl') return;
+        const txt = ch.textContent || '';
+        if (txt.includes('聯合檢查表') && !jointName) {
+          const mName = txt.match(/事業單位名稱[：:]\s*([^\s]+)/);
+          if (mName) jointName = mName[1].trim();
+          const mAddr = txt.match(/事業單位地址[：:]\s*([^\s]+)/);
+          if (mAddr) jointAddr = mAddr[1].trim();
+        }
+        if (txt.includes('一、基本資料') && (txt.includes('管理權人') || txt.includes('保安監督人')) && att4TblIdx === -1) {
+          att4TblIdx = idx;
+          const rows = Array.from(ch.children).filter(el => el.localName === 'tr');
+          rows.forEach(row => {
+            const cells = Array.from(row.children).filter(el => el.localName === 'tc').map(c => (c.textContent || '').trim());
+            if (!cells.length) return;
+            const key = cells[0].replace(/[\s\u3000]/g, '');
+            if (cells.length >= 2 && cells[1].includes('符合規定')) return;
+            if (key === '場所名稱' && cells.length >= 2 && !info.SITE_NAME) {
+              info.SITE_NAME = cells[1];
+            } else if (key === '場所地址' && cells.length >= 2 && !info.SITE_ADDR) {
+              info.SITE_ADDR = cells[1];
+            } else if (key === '管理權人' && cells.length >= 2 && !info.OWNER_NAME) {
+              info.OWNER_NAME = cells[1];
+              if (cells.length > 3) info.OWNER_ID = cells[3];
+              if (cells.length > 5) info.OWNER_PHONE = cells[5];
+            } else if (key === '保安監督人' && cells.length >= 2 && !info.SUPERVISOR_NAME) {
+              info.SUPERVISOR_NAME = cells[1];
+              if (cells.length > 3) info.SUPERVISOR_ID = cells[3];
+              if (cells.length > 5) info.SUPERVISOR_PHONE = cells[5];
+            }
+          });
+        }
+      });
+
+      if (!info.SITE_NAME && jointName) info.SITE_NAME = jointName;
+      if (!info.SITE_ADDR && jointAddr) info.SITE_ADDR = jointAddr;
+      info.SITE_PHONE = info.OWNER_PHONE || info.SUPERVISOR_PHONE;
+
+      let detectedAbove = null;
+      if (info.SUPERVISOR_NAME) {
+        detectedAbove = !info.SUPERVISOR_NAME.includes('免設');
+      }
+      if (detectedAbove === null) {
+        for (const ch of initialChildren) {
+          if (ch.localName !== 'tbl') continue;
+          const rows = Array.from(ch.children).filter(el => el.localName === 'tr');
+          for (const row of rows) {
+            const cells = Array.from(row.children).filter(el => el.localName === 'tc').map(c => (c.textContent || '').trim());
+            for (let ci = 0; ci < cells.length; ci++) {
+              if (cells[ci].includes('合計倍數') && ci + 1 < cells.length) {
+                const mNum = cells[ci + 1].match(/[\d.]+/);
+                if (mNum) {
+                  detectedAbove = parseFloat(mNum[0]) >= 30.0;
+                }
+              }
+            }
           }
         }
-        if (jointIdx !== -1 && att4Idx > jointIdx) {
-          for (let idx = 0; idx < att4Idx; idx++) {
-            body.removeChild(children[idx]);
+      }
+      if (detectedAbove === null) detectedAbove = true;
+
+      const isAbove = mode === 'above' ? true : (mode === 'below' ? false : detectedAbove);
+      const sigLabel = isAbove ? '保安檢查員簽章：' : '專人簽章：';
+      let insertedAtt10 = false;
+      let modifiedSigs = 0;
+      let att10TblRef = null;
+
+      // 2. 以「附件10」取代「聯合檢查表 + 原附件4 + 附件4備註」
+      if (att4TblIdx !== -1) {
+        const children = Array.from(body.children);
+        let firstSubIdx = -1;
+        for (let idx = att4TblIdx + 1; idx < children.length; idx++) {
+          const ch = children[idx];
+          if (ch.localName === 'sectPr' || ch.localName === 'tbl') {
+            firstSubIdx = idx;
+            break;
           }
-          // 若附件4段落本身有 pageBreakBefore，一併移除避免開頭空白頁
-          const att4El = children[att4Idx];
-          const pPr = Array.from(att4El.children).find(el => el.localName === 'pPr');
+          if (ch.localName === 'p') {
+            const txt = (ch.textContent || '').trim();
+            if (SUBTABLE_KEYWORDS.some(kw => txt.includes(kw))) {
+              if (!txt.startsWith('一、') && !txt.startsWith('二、') && !txt.startsWith('備註')) {
+                firstSubIdx = idx;
+                break;
+              }
+            }
+          }
+        }
+        if (firstSubIdx === -1) firstSubIdx = children.length;
+
+        for (let idx = 0; idx < firstSubIdx; idx++) {
+          body.removeChild(children[idx]);
+        }
+
+        // 若第一個附表標題本身帶有 pageBreakBefore，移除避免空白頁
+        if (firstSubIdx < children.length && children[firstSubIdx].localName === 'p') {
+          const pPr = Array.from(children[firstSubIdx].children).find(el => el.localName === 'pPr');
           if (pPr) {
             const pbb = Array.from(pPr.children).find(el => el.localName === 'pageBreakBefore');
             if (pbb) pPr.removeChild(pbb);
           }
-          removedJoint = true;
         }
+
+        // 載入附件10範本並填入廠商基本資料
+        let tplXml = isAbove ? window.ATT10_TEMPLATES.above : window.ATT10_TEMPLATES.below;
+        Object.keys(info).forEach(k => {
+          tplXml = tplXml.split(`{{${k}}}`).join(escapeXml(info[k] || ''));
+        });
+        const tplDoc = parser.parseFromString(tplXml, 'text/xml');
+        const tplElems = Array.from(tplDoc.documentElement.children);
+        const firstRemaining = body.firstElementChild;
+        tplElems.forEach(el => {
+          const imported = xmlDoc.importNode(el, true);
+          if (imported.localName === 'tbl') att10TblRef = imported;
+          body.insertBefore(imported, firstRemaining);
+        });
+        insertedAtt10 = true;
       }
 
-      const tables = Array.from(xmlDoc.getElementsByTagNameNS(W_URI, 'tbl'));
+      // 3. 處理所有附表（附表三～附表十二）：刪除抽查列、刪除舊簽章 2 列、表格下方插入黑色粗體簽章段落
+      const bodyChildren = Array.from(body.children);
+      for (let idx = bodyChildren.length - 1; idx >= 0; idx--) {
+        const el = bodyChildren[idx];
+        if (el.localName !== 'tbl' || el === att10TblRef) continue;
 
-      tables.forEach(tbl => {
-        // 2. 刪除「備註｜抽查 年「 」月自主檢查表」列
-        const directRows = Array.from(tbl.children).filter(el => el.localName === 'tr');
-        directRows.forEach(row => {
-          const text = row.textContent || '';
-          if (text.includes('抽查') && text.includes('自主檢查表')) {
-            tbl.removeChild(row);
-            removedChoucha++;
+        // 刪除抽查列（防呆）
+        Array.from(el.children).filter(c => c.localName === 'tr').forEach(row => {
+          const rtxt = row.textContent || '';
+          if (rtxt.includes('抽查') && rtxt.includes('自主檢查表')) {
+            el.removeChild(row);
           }
         });
 
-        // 3. 替換簽章列
-        const rows = Array.from(tbl.children).filter(el => el.localName === 'tr');
-        const rowsToReplace = [];
-
+        // 刪除舊簽章列（管理權人或現場有關人員 + 下一列空白簽名列）
+        const rows = Array.from(el.children).filter(c => c.localName === 'tr');
+        const rowsToRemove = [];
         rows.forEach((row, rIdx) => {
-          const text = row.textContent || '';
-          if (text.includes('管理權人或現場有關人員') && (text.includes('簽章') || text.includes('檢查及會同人員') || text.includes('審核人員'))) {
-            rowsToReplace.push({ row, rIdx });
+          const rtxt = row.textContent || '';
+          if (rtxt.includes('管理權人或現場有關人員') && (rtxt.includes('簽章') || rtxt.includes('檢查及會同人員') || rtxt.includes('審核人員'))) {
+            rowsToRemove.push(rIdx);
           }
         });
 
-        // Replace from bottom to top
-        for (let i = rowsToReplace.length - 1; i >= 0; i--) {
-          const { row: targetRow } = rowsToReplace[i];
-          // 動態精準計算最佳比例：檢查日期約 20%~25%（窄欄），其餘約 75%~80% 均分給兩位簽署人
-          const gridEl = tbl.getElementsByTagNameNS(W_URI, 'tblGrid')[0];
-          const colCols = gridEl ? Array.from(gridEl.getElementsByTagNameNS(W_URI, 'gridCol')) : [];
-          const colWidths = colCols.map(c => parseInt(c.getAttributeNS(W_URI, 'w') || c.getAttribute('w:w')) || 0);
-          const totalW = colWidths.reduce((a, b) => a + b, 0);
-          const N = colWidths.length;
-
-          let w1, gs1, w2, gs2, w3, gs3;
-
-          if (N >= 3 && totalW > 0) {
-            const target1 = 0.22 * totalW;
-            const target2 = 0.39 * totalW;
-            const target3 = 0.39 * totalW;
-
-            let bestScore = Infinity;
-            let bestIJ = [1, 2];
-
-            for (let i = 1; i < N - 1; i++) {
-              const curW1 = colWidths.slice(0, i).reduce((a, b) => a + b, 0);
-              if (curW1 < 1200) continue;
-              for (let j = i + 1; j < N; j++) {
-                const curW2 = colWidths.slice(i, j).reduce((a, b) => a + b, 0);
-                const curW3 = colWidths.slice(j).reduce((a, b) => a + b, 0);
-                if (curW2 < 1500 || curW3 < 1500) continue;
-
-                const score = Math.abs(curW1 - target1) * 3.0 + Math.abs(curW2 - target2) + Math.abs(curW3 - target3) + Math.abs(curW2 - curW3) * 0.5;
-                if (score < bestScore) {
-                  bestScore = score;
-                  bestIJ = [i, j];
-                }
-              }
-            }
-
-            const [optI, optJ] = bestIJ;
-            w1 = colWidths.slice(0, optI).reduce((a, b) => a + b, 0);
-            w2 = colWidths.slice(optI, optJ).reduce((a, b) => a + b, 0);
-            w3 = colWidths.slice(optJ).reduce((a, b) => a + b, 0);
-            gs1 = optI;
-            gs2 = optJ - optI;
-            gs3 = N - optJ;
-          } else {
-            const cells = Array.from(targetRow.getElementsByTagNameNS(W_URI, 'tc'));
-            function getCellWidth(tc) {
-              const wEl = tc.getElementsByTagNameNS(W_URI, 'tcW')[0];
-              return wEl ? (parseInt(wEl.getAttributeNS(W_URI, 'w') || wEl.getAttribute('w:w')) || 0) : 0;
-            }
-            function getCellGridSpan(tc) {
-              const gsEl = tc.getElementsByTagNameNS(W_URI, 'gridSpan')[0];
-              return gsEl ? (parseInt(gsEl.getAttributeNS(W_URI, 'val') || gsEl.getAttribute('w:val')) || 1) : 1;
-            }
-
-            const tot = cells.reduce((acc, c) => acc + getCellWidth(c), 0) || 10340;
-            const totGs = cells.reduce((acc, c) => acc + getCellGridSpan(c), 0) || 6;
-            w1 = Math.round(tot * 0.22);
-            w2 = Math.round((tot - w1) / 2);
-            w3 = tot - w1 - w2;
-            gs1 = Math.max(1, Math.round(totGs * 0.22));
-            gs2 = Math.max(1, Math.round((totGs - gs1) / 2));
-            gs3 = Math.max(1, totGs - gs1 - gs2);
-          }
-
-          const specs = [
-            { label: '檢查日期：', w: w1, gs: gs1 },
-            { label: '保安檢查員簽名：', w: w2, gs: gs2 },
-            { label: '保安監督人複核簽名：', w: w3, gs: gs3 }
-          ];
-
-          // Create new w:tr
-          const newTr = xmlDoc.createElementNS(W_URI, 'w:tr');
-          const trPr = xmlDoc.createElementNS(W_URI, 'w:trPr');
-          trPr.appendChild(xmlDoc.createElementNS(W_URI, 'w:cantSplit'));
-          
-          const trHeight = xmlDoc.createElementNS(W_URI, 'w:trHeight');
-          trHeight.setAttributeNS(W_URI, 'w:val', '700'); // 充足行高供手寫簽名蓋章
-          trPr.appendChild(trHeight);
-          
-          const jc = xmlDoc.createElementNS(W_URI, 'w:jc');
-          jc.setAttributeNS(W_URI, 'w:val', 'center');
-          trPr.appendChild(jc);
-          newTr.appendChild(trPr);
-
-          specs.forEach((spec, sIdx) => {
-            const isFirst = (sIdx === 0);
-            const isLast = (sIdx === specs.length - 1);
-
-            const tc = xmlDoc.createElementNS(W_URI, 'w:tc');
-            const tcPr = xmlDoc.createElementNS(W_URI, 'w:tcPr');
-            
-            const tcW = xmlDoc.createElementNS(W_URI, 'w:tcW');
-            tcW.setAttributeNS(W_URI, 'w:w', String(spec.w));
-            tcW.setAttributeNS(W_URI, 'w:type', 'dxa');
-            tcPr.appendChild(tcW);
-
-            if (spec.gs > 1) {
-              const gridSpan = xmlDoc.createElementNS(W_URI, 'w:gridSpan');
-              gridSpan.setAttributeNS(W_URI, 'w:val', String(spec.gs));
-              tcPr.appendChild(gridSpan);
-            }
-
-            // tcBorders: 完整表格外框實線與內部直隔線
-            const tcBorders = xmlDoc.createElementNS(W_URI, 'w:tcBorders');
-            
-            const topB = xmlDoc.createElementNS(W_URI, 'w:top');
-            topB.setAttributeNS(W_URI, 'w:val', 'single');
-            topB.setAttributeNS(W_URI, 'w:sz', '12');
-            topB.setAttributeNS(W_URI, 'w:space', '0');
-            topB.setAttributeNS(W_URI, 'w:color', 'auto');
-            tcBorders.appendChild(topB);
-
-            const bottomB = xmlDoc.createElementNS(W_URI, 'w:bottom');
-            bottomB.setAttributeNS(W_URI, 'w:val', 'single');
-            bottomB.setAttributeNS(W_URI, 'w:sz', '12');
-            bottomB.setAttributeNS(W_URI, 'w:space', '0');
-            bottomB.setAttributeNS(W_URI, 'w:color', 'auto');
-            tcBorders.appendChild(bottomB);
-
-            const leftB = xmlDoc.createElementNS(W_URI, 'w:left');
-            leftB.setAttributeNS(W_URI, 'w:val', 'single');
-            leftB.setAttributeNS(W_URI, 'w:sz', isFirst ? '12' : '4');
-            leftB.setAttributeNS(W_URI, 'w:space', '0');
-            leftB.setAttributeNS(W_URI, 'w:color', 'auto');
-            tcBorders.appendChild(leftB);
-
-            const rightB = xmlDoc.createElementNS(W_URI, 'w:right');
-            rightB.setAttributeNS(W_URI, 'w:val', 'single');
-            rightB.setAttributeNS(W_URI, 'w:sz', isLast ? '12' : '4');
-            rightB.setAttributeNS(W_URI, 'w:space', '0');
-            rightB.setAttributeNS(W_URI, 'w:color', 'auto');
-            tcBorders.appendChild(rightB);
-
-            tcPr.appendChild(tcBorders);
-
-            const vAlign = xmlDoc.createElementNS(W_URI, 'w:vAlign');
-            vAlign.setAttributeNS(W_URI, 'w:val', 'center');
-            tcPr.appendChild(vAlign);
-            tc.appendChild(tcPr);
-
-            // w:p 靠左對齊，預留手寫簽名蓋章空間
-            const p = xmlDoc.createElementNS(W_URI, 'w:p');
-            const pPr = xmlDoc.createElementNS(W_URI, 'w:pPr');
-            
-            const spacing = xmlDoc.createElementNS(W_URI, 'w:spacing');
-            spacing.setAttributeNS(W_URI, 'w:line', '280');
-            spacing.setAttributeNS(W_URI, 'w:lineRule', 'exact');
-            pPr.appendChild(spacing);
-
-            const pJc = xmlDoc.createElementNS(W_URI, 'w:jc');
-            pJc.setAttributeNS(W_URI, 'w:val', 'left');
-            pPr.appendChild(pJc);
-
-            const ind = xmlDoc.createElementNS(W_URI, 'w:ind');
-            ind.setAttributeNS(W_URI, 'w:left', '100');
-            pPr.appendChild(ind);
-
-            const rPr_p = xmlDoc.createElementNS(W_URI, 'w:rPr');
-            const rFonts_p = xmlDoc.createElementNS(W_URI, 'w:rFonts');
-            rFonts_p.setAttributeNS(W_URI, 'w:ascii', '標楷體');
-            rFonts_p.setAttributeNS(W_URI, 'w:eastAsia', '標楷體');
-            rFonts_p.setAttributeNS(W_URI, 'w:hAnsi', '標楷體');
-            rPr_p.appendChild(rFonts_p);
-
-            const sz_p = xmlDoc.createElementNS(W_URI, 'w:sz');
-            sz_p.setAttributeNS(W_URI, 'w:val', '20'); // 10pt (精簡小字，擴大手寫空間)
-            rPr_p.appendChild(sz_p);
-            pPr.appendChild(rPr_p);
-            p.appendChild(pPr);
-
-            // w:r & w:t
-            const r = xmlDoc.createElementNS(W_URI, 'w:r');
-            const rPr = xmlDoc.createElementNS(W_URI, 'w:rPr');
-            const rFonts = xmlDoc.createElementNS(W_URI, 'w:rFonts');
-            rFonts.setAttributeNS(W_URI, 'w:ascii', '標楷體');
-            rFonts.setAttributeNS(W_URI, 'w:eastAsia', '標楷體');
-            rFonts.setAttributeNS(W_URI, 'w:hAnsi', '標楷體');
-            rFonts.setAttributeNS(W_URI, 'w:hint', 'eastAsia');
-            rPr.appendChild(rFonts);
-
-            const sz = xmlDoc.createElementNS(W_URI, 'w:sz');
-            sz.setAttributeNS(W_URI, 'w:val', '20'); // 10pt
-            rPr.appendChild(sz);
-            r.appendChild(rPr);
-
-            const t = xmlDoc.createElementNS(W_URI, 'w:t');
-            t.textContent = spec.label;
-            r.appendChild(t);
-            p.appendChild(r);
-
-            tc.appendChild(p);
-            newTr.appendChild(tc);
-          });
-
-          // In tbl, remove next row (handwritten signature line) and replace targetRow with newTr
+        let removedOldSig = false;
+        for (let i = rowsToRemove.length - 1; i >= 0; i--) {
+          const targetRow = rows[rowsToRemove[i]];
           const nextRow = targetRow.nextElementSibling;
           if (nextRow && nextRow.localName === 'tr') {
-            tbl.removeChild(nextRow);
+            el.removeChild(nextRow);
           }
-          tbl.replaceChild(newTr, targetRow);
-          modifiedTablesCount++;
+          el.removeChild(targetRow);
+          removedOldSig = true;
         }
-      });
+
+        if (removedOldSig) {
+          const curChildren = Array.from(body.children);
+          const tblPos = curChildren.indexOf(el);
+          let insertAfter = tblPos;
+
+          for (let look = tblPos + 1; look < Math.min(tblPos + 3, curChildren.length); look++) {
+            const nxt = curChildren[look];
+            if (nxt.localName !== 'p') break;
+            const ntxt = (nxt.textContent || '').trim();
+            if (ntxt.includes('本表欄位所稱辦法') || ntxt.startsWith('※')) {
+              insertAfter = look;
+              break;
+            } else if (ntxt !== '') {
+              break;
+            }
+          }
+
+          let alreadyHas = false;
+          for (let look = insertAfter + 1; look < Math.min(insertAfter + 3, curChildren.length); look++) {
+            const nxt = curChildren[look];
+            if (nxt.localName === 'p') {
+              const ntxt = (nxt.textContent || '').trim();
+              if (ntxt.includes('保安檢查員簽章') || ntxt.includes('專人簽章')) {
+                alreadyHas = true;
+                break;
+              } else if (ntxt !== '') {
+                break;
+              }
+            }
+          }
+
+          if (!alreadyHas) {
+            const sigP = createSignatureParagraph(xmlDoc, W_URI, sigLabel);
+            const refNode = curChildren[insertAfter + 1] || null;
+            body.insertBefore(sigP, refNode);
+          }
+          modifiedSigs++;
+        }
+      }
 
       // Serialize modified XML
       const serializer = new XMLSerializer();
       const newXmlText = serializer.serializeToString(xmlDoc);
-      
-      // Update document.xml in ZIP
       zip.file('word/document.xml', newXmlText);
 
-      // Generate blob
       const outBlob = await zip.generateAsync({
         type: 'blob',
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         compression: 'DEFLATE'
       });
 
-      return { blob: outBlob, modifiedCount: modifiedTablesCount, removedJoint, removedChoucha };
+      return {
+        blob: outBlob,
+        modifiedCount: modifiedSigs,
+        insertedAtt10,
+        modeLabel: isAbove ? '30倍以上' : '30倍以下'
+      };
     }
 
     // Download helpers

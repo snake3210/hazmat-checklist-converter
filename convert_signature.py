@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-公共危險物品場所自主檢查表 - 簽章欄自動轉換程式 (v2.2)
-將舊版簽章表格（管理權人、檢查及會同人員、審核人員）
-自動轉換為新版格式（檢 查 日 期、保 安 檢 查 員 簽 名、保 安 監 督 人 複 核 簽 名）
-樣式規範：
-- 完整 3 欄邊框（頂、底、左、右與中隔線）
-- 文字靠左對齊，預留充足手寫日期、簽名與蓋章空間
-- 充足行高 (trHeight 700 dxa)
-- 僅更動簽章列，其餘內容、字型、排版百分之百保留。
+公共危險物品場所自主檢查表 - 自動轉換程式 (v3.0 - 11308起適用範例版)
+功能：
+1. 自動偵測 30 倍以上 / 30 倍以下（依保安監督人是否免設或合計倍數，亦支援手動指定 --mode above|below）。
+2. 自動從原檔「附件4 基本資料」擷取場所名稱、地址、電話、管理權人、保安監督人資訊。
+3. 自動移除第一頁「聯合檢查表」與原「附件4（含抽查備註列）」，並於最前面取代插入對應版本之「附件10 公共危險物品保安監督自主檢查表」並自動回填廠商基本資料。
+4. 刪除所有附表（附表三～附表十二）表格內之舊版 2 列簽章區塊，並於表格下方（備註行之後）改為範例樣式之黑色粗體 12pt 標楷體簽章行：「保安檢查員簽章：」（30倍以上）或「專人簽章：」（30倍以下）。
 """
 
 import os
+import re
 import sys
 import glob
-import shutil
 import zipfile
+from xml.sax.saxutils import escape as xml_escape
 import xml.etree.ElementTree as ET
 
 # 註冊所有常見 Word XML 命名空間
@@ -33,238 +32,298 @@ for prefix, uri in NAMESPACES.items():
 W_NS = f"{{{NAMESPACES['w']}}}"
 NS = {'w': NAMESPACES['w']}
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_ABOVE_PATH = os.path.join(SCRIPT_DIR, 'templates', 'att10_above.xml')
+TEMPLATE_BELOW_PATH = os.path.join(SCRIPT_DIR, 'templates', 'att10_below.xml')
 
-def create_new_signature_row(labels_with_specs):
-    """
-    建立新版簽章列 (tr)
-    labels_with_specs: list of (text, width_dxa, grid_span, is_first, is_last)
-    """
-    tr = ET.Element(f"{W_NS}tr")
-    
-    # 列屬性：充足行高以供手寫簽名蓋章
-    trPr = ET.SubElement(tr, f"{W_NS}trPr")
-    ET.SubElement(trPr, f"{W_NS}cantSplit")
-    ET.SubElement(trPr, f"{W_NS}trHeight", {f"{W_NS}val": "700"})
-    ET.SubElement(trPr, f"{W_NS}jc", {f"{W_NS}val": "center"})
-    
-    total_cols = len(labels_with_specs)
-    
-    for idx, (label, w, gs) in enumerate(labels_with_specs):
-        is_first = (idx == 0)
-        is_last = (idx == total_cols - 1)
-        
-        tc = ET.SubElement(tr, f"{W_NS}tc")
-        tcPr = ET.SubElement(tc, f"{W_NS}tcPr")
-        ET.SubElement(tcPr, f"{W_NS}tcW", {f"{W_NS}w": str(w), f"{W_NS}type": "dxa"})
-        if gs > 1:
-            ET.SubElement(tcPr, f"{W_NS}gridSpan", {f"{W_NS}val": str(gs)})
-            
-        # 邊界設定：完整四邊框線，外邊框粗線(12)，內部分隔線細線(4/8)
-        tcBorders = ET.SubElement(tcPr, f"{W_NS}tcBorders")
-        ET.SubElement(tcBorders, f"{W_NS}top", {
-            f"{W_NS}val": "single",
-            f"{W_NS}sz": "12",
-            f"{W_NS}space": "0",
-            f"{W_NS}color": "auto"
-        })
-        ET.SubElement(tcBorders, f"{W_NS}bottom", {
-            f"{W_NS}val": "single",
-            f"{W_NS}sz": "12",
-            f"{W_NS}space": "0",
-            f"{W_NS}color": "auto"
-        })
-        ET.SubElement(tcBorders, f"{W_NS}left", {
-            f"{W_NS}val": "single",
-            f"{W_NS}sz": "12" if is_first else "4",
-            f"{W_NS}space": "0",
-            f"{W_NS}color": "auto"
-        })
-        ET.SubElement(tcBorders, f"{W_NS}right", {
-            f"{W_NS}val": "single",
-            f"{W_NS}sz": "12" if is_last else "4",
-            f"{W_NS}space": "0",
-            f"{W_NS}color": "auto"
-        })
-        
-        # 垂直置中
-        ET.SubElement(tcPr, f"{W_NS}vAlign", {f"{W_NS}val": "center"})
-        
-        # 段落與文字（靠左對齊，留給後方簽名蓋章空間）
-        p = ET.SubElement(tc, f"{W_NS}p")
-        pPr = ET.SubElement(p, f"{W_NS}pPr")
-        ET.SubElement(pPr, f"{W_NS}spacing", {f"{W_NS}line": "280", f"{W_NS}lineRule": "exact"})
-        ET.SubElement(pPr, f"{W_NS}jc", {f"{W_NS}val": "left"})
-        ET.SubElement(pPr, f"{W_NS}ind", {f"{W_NS}left": "100"})  # 靠左預留適當邊距
-        
-        rPr_p = ET.SubElement(pPr, f"{W_NS}rPr")
-        ET.SubElement(rPr_p, f"{W_NS}rFonts", {
-            f"{W_NS}ascii": "標楷體",
-            f"{W_NS}eastAsia": "標楷體",
-            f"{W_NS}hAnsi": "標楷體"
-        })
-        ET.SubElement(rPr_p, f"{W_NS}sz", {f"{W_NS}val": "20"})  # 10pt (更小字體，留出最大簽章空間)
-        
-        r = ET.SubElement(p, f"{W_NS}r")
-        rPr = ET.SubElement(r, f"{W_NS}rPr")
-        ET.SubElement(rPr, f"{W_NS}rFonts", {
-            f"{W_NS}ascii": "標楷體",
-            f"{W_NS}eastAsia": "標楷體",
-            f"{W_NS}hAnsi": "標楷體",
-            f"{W_NS}hint": "eastAsia"
-        })
-        ET.SubElement(rPr, f"{W_NS}sz", {f"{W_NS}val": "20"})  # 10pt
-        
-        t = ET.SubElement(r, f"{W_NS}t")
-        t.text = label
-        
-    return tr
+SUBTABLE_KEYWORDS = ('附表三', '附表四', '附表五', '附表六', '附表七', '附表八', '附表九', '附表十', '附表十一', '附表十二')
 
 
-def convert_docx_file(src_path, dst_path):
+def get_text(elem):
+    return ''.join(t.text for t in elem.findall('.//w:t', NS) if t.text)
+
+
+def create_signature_paragraph(sig_text):
     """
-    轉換單一 docx 檔案：
-    1. 若開頭有「高雄市公共危險物品場所聯合檢查表」，刪除該頁直到「附件4」開頭。
-    2. 刪除表格中的「備註｜抽查 年「 」月自主檢查表」列。
-    3. 僅修改舊版簽章列為新版三欄簽章列，保留其他所有內容。
-    傳回 (成功與否, 統計資訊 dict)
+    建立範例樣式的表格外簽章段落（黑色粗體 12pt 標楷體）
+    """
+    p = ET.Element(f"{W_NS}p")
+    pPr = ET.SubElement(p, f"{W_NS}pPr")
+    ET.SubElement(pPr, f"{W_NS}widowControl")
+    ET.SubElement(pPr, f"{W_NS}spacing", {f"{W_NS}before": "120", f"{W_NS}after": "120"})
+    rPr_p = ET.SubElement(pPr, f"{W_NS}rPr")
+    ET.SubElement(rPr_p, f"{W_NS}rFonts", {
+        f"{W_NS}ascii": "標楷體",
+        f"{W_NS}eastAsia": "標楷體",
+        f"{W_NS}hAnsi": "標楷體"
+    })
+    ET.SubElement(rPr_p, f"{W_NS}b")
+    ET.SubElement(rPr_p, f"{W_NS}bCs")
+    ET.SubElement(rPr_p, f"{W_NS}sz", {f"{W_NS}val": "24"})
+
+    r = ET.SubElement(p, f"{W_NS}r")
+    rPr = ET.SubElement(r, f"{W_NS}rPr")
+    ET.SubElement(rPr, f"{W_NS}rFonts", {
+        f"{W_NS}ascii": "標楷體",
+        f"{W_NS}eastAsia": "標楷體",
+        f"{W_NS}hAnsi": "標楷體",
+        f"{W_NS}hint": "eastAsia"
+    })
+    ET.SubElement(rPr, f"{W_NS}b")
+    ET.SubElement(rPr, f"{W_NS}bCs")
+    ET.SubElement(rPr, f"{W_NS}color", {f"{W_NS}val": "000000"})
+    ET.SubElement(rPr, f"{W_NS}sz", {f"{W_NS}val": "24"})  # 12pt
+    t = ET.SubElement(r, f"{W_NS}t")
+    t.text = sig_text
+    return p
+
+
+def extract_basic_info(body):
+    """
+    從「聯合檢查表」與「附件4 基本資料」擷取場所與人員資訊，並判斷是否為 30 倍以上。
+    """
+    info = {
+        'SITE_NAME': '',
+        'SITE_PHONE': '',
+        'SITE_ADDR': '',
+        'OWNER_NAME': '',
+        'OWNER_PHONE': '',
+        'OWNER_ID': '',
+        'SUPERVISOR_NAME': '',
+        'SUPERVISOR_PHONE': '',
+        'SUPERVISOR_ID': '',
+    }
+    children = list(body)
+    joint_name = ''
+    joint_addr = ''
+    att4_tbl_idx = -1
+
+    for idx, ch in enumerate(children):
+        if ch.tag != f"{W_NS}tbl":
+            continue
+        txt = get_text(ch)
+        if '聯合檢查表' in txt and not joint_name:
+            m_name = re.search(r'事業單位名稱[：:]\s*([^\s]+)', txt)
+            if m_name:
+                joint_name = m_name.group(1).strip()
+            m_addr = re.search(r'事業單位地址[：:]\s*([^\s]+)', txt)
+            if m_addr:
+                joint_addr = m_addr.group(1).strip()
+        if '一、基本資料' in txt and ('管理權人' in txt or '保安監督人' in txt) and att4_tbl_idx == -1:
+            att4_tbl_idx = idx
+            for row in ch.findall('./w:tr', NS):
+                cells = [get_text(c).strip() for c in row.findall('./w:tc', NS)]
+                if not cells:
+                    continue
+                key = cells[0].replace(' ', '').replace('\u3000', '')
+                # 跳過「五、保安監督及安全管理」的勾選檢查列，只讀取「一、基本資料」區
+                if len(cells) >= 2 and '符合規定' in cells[1]:
+                    continue
+                if key == '場所名稱' and len(cells) >= 2 and not info['SITE_NAME']:
+                    info['SITE_NAME'] = cells[1]
+                elif key == '場所地址' and len(cells) >= 2 and not info['SITE_ADDR']:
+                    info['SITE_ADDR'] = cells[1]
+                elif key == '管理權人' and len(cells) >= 2 and not info['OWNER_NAME']:
+                    info['OWNER_NAME'] = cells[1]
+                    if len(cells) > 3:
+                        info['OWNER_ID'] = cells[3]
+                    if len(cells) > 5:
+                        info['OWNER_PHONE'] = cells[5]
+                elif key == '保安監督人' and len(cells) >= 2 and not info['SUPERVISOR_NAME']:
+                    info['SUPERVISOR_NAME'] = cells[1]
+                    if len(cells) > 3:
+                        info['SUPERVISOR_ID'] = cells[3]
+                    if len(cells) > 5:
+                        info['SUPERVISOR_PHONE'] = cells[5]
+
+    if not info['SITE_NAME'] and joint_name:
+        info['SITE_NAME'] = joint_name
+    if not info['SITE_ADDR'] and joint_addr:
+        info['SITE_ADDR'] = joint_addr
+    info['SITE_PHONE'] = info['OWNER_PHONE'] or info['SUPERVISOR_PHONE']
+
+    # 自動判定 30倍以上 vs 30倍以下
+    is_above = None
+    sup = info['SUPERVISOR_NAME'].strip()
+    if sup:
+        if '免設' in sup:
+            is_above = False
+        else:
+            is_above = True
+
+    # 若無附件4（例如獨立數量表），嘗試從附表十二合計倍數判定
+    if is_above is None:
+        for ch in children:
+            if ch.tag == f"{W_NS}tbl":
+                for row in ch.findall('./w:tr', NS):
+                    cells = [get_text(c).strip() for c in row.findall('./w:tc', NS)]
+                    for ci, val in enumerate(cells):
+                        if '合計倍數' in val and ci + 1 < len(cells):
+                            m_num = re.search(r'[\d.]+', cells[ci + 1])
+                            if m_num:
+                                try:
+                                    is_above = float(m_num.group(0)) >= 30.0
+                                except ValueError:
+                                    pass
+    if is_above is None:
+        is_above = True
+
+    return info, att4_tbl_idx, is_above
+
+
+def load_att10_elements(is_above, info):
+    tpl_path = TEMPLATE_ABOVE_PATH if is_above else TEMPLATE_BELOW_PATH
+    with open(tpl_path, 'r', encoding='utf-8') as f:
+        xml_str = f.read()
+    for k, v in info.items():
+        xml_str = xml_str.replace(f'{{{{{k}}}}}', xml_escape(v or ''))
+    wrapper = ET.fromstring(xml_str)
+    return list(wrapper)
+
+
+def convert_docx_file(src_path, dst_path, mode='auto'):
+    """
+    轉換單一 docx 檔案 (v3.0)
+    mode: 'auto' | 'above' | 'below'
     """
     if not os.path.exists(src_path):
-        return False, {'signatures': 0, 'removed_joint': False, 'removed_choucha': 0}
-        
+        return False, {}
+
     os.makedirs(os.path.dirname(os.path.abspath(dst_path)), exist_ok=True)
-    
+
     with zipfile.ZipFile(src_path, 'r') as zin:
         xml_content = zin.read('word/document.xml')
         root = ET.fromstring(xml_content)
-        
-        removed_joint = False
-        removed_choucha = 0
-        modified_count = 0
-        
-        # 1. 偵測並移除第一頁「聯合檢查表」（從頭刪到「附件4」之前）
+
         body = root.find('./w:body', NS)
-        if body is not None:
+        if body is None:
+            return False, {}
+
+        info, att4_tbl_idx, detected_above = extract_basic_info(body)
+        if mode == 'above':
+            is_above = True
+        elif mode == 'below':
+            is_above = False
+        else:
+            is_above = detected_above
+
+        sig_label = '保安檢查員簽章：' if is_above else '專人簽章：'
+        inserted_att10 = False
+        removed_choucha = 0
+        modified_sigs = 0
+
+        # 1. 若有附件4主表，將「聯合檢查表 + 附件4 + 附件4備註」全部取代為「附件10」
+        att10_tbl_ref = None
+        if att4_tbl_idx != -1:
             children = list(body)
-            joint_idx = -1
-            att4_idx = -1
-            for idx, child in enumerate(children[:15]):
-                txt = ''.join(t.text for t in child.findall('.//w:t', NS) if t.text).strip()
-                if '聯合檢查表' in txt and joint_idx == -1:
-                    joint_idx = idx
-                if ('附件4' in txt or '附件４' in txt or '消防安全檢查紀錄表' in txt) and att4_idx == -1:
-                    att4_idx = idx
-            
-            if joint_idx != -1 and att4_idx > joint_idx:
-                for el in children[:att4_idx]:
-                    body.remove(el)
-                # 若附件4段落本身有 pageBreakBefore，一併移除避免開頭空白頁
-                att4_el = children[att4_idx]
-                pPr = att4_el.find('./w:pPr', NS)
+            first_sub_idx = -1
+            for idx in range(att4_tbl_idx + 1, len(children)):
+                ch = children[idx]
+                if ch.tag == f"{W_NS}sectPr":
+                    first_sub_idx = idx
+                    break
+                if ch.tag == f"{W_NS}tbl":
+                    first_sub_idx = idx
+                    break
+                if ch.tag == f"{W_NS}p":
+                    txt = get_text(ch).strip()
+                    if any(kw in txt for kw in SUBTABLE_KEYWORDS):
+                        if not txt.startswith(('一、', '二、', '備註')):
+                            first_sub_idx = idx
+                            break
+
+            if first_sub_idx == -1:
+                first_sub_idx = len(children)
+
+            for el in children[:first_sub_idx]:
+                body.remove(el)
+
+            # 若第一個附表標題本身帶有 pageBreakBefore，移除避免多出空白頁
+            if first_sub_idx < len(children) and children[first_sub_idx].tag == f"{W_NS}p":
+                pPr = children[first_sub_idx].find('./w:pPr', NS)
                 if pPr is not None:
                     pbb = pPr.find('./w:pageBreakBefore', NS)
                     if pbb is not None:
                         pPr.remove(pbb)
-                removed_joint = True
-        
-        tables = root.findall('.//w:tbl', NS)
-        
-        for tbl in tables:
-            # 2. 刪除「備註｜抽查 年「 」月自主檢查表」列
-            rows = tbl.findall('./w:tr', NS)
-            for row in rows:
-                text = ''.join([t.text for t in row.findall('.//w:t', NS) if t.text])
-                if '抽查' in text and '自主檢查表' in text:
-                    tbl.remove(row)
+
+            att10_elems = load_att10_elements(is_above, info)
+            for insert_pos, el in enumerate(att10_elems):
+                body.insert(insert_pos, el)
+                if el.tag == f"{W_NS}tbl":
+                    att10_tbl_ref = el
+            inserted_att10 = True
+
+        # 2. 處理所有附表（附表三～附表十二）：刪除抽查列、刪除舊簽章 2 列、表格下方插入範例簽章段落
+        body_children = list(body)
+        # 由後往前處理，避免 insert 影響索引
+        for idx in range(len(body_children) - 1, -1, -1):
+            el = body_children[idx]
+            if el.tag != f"{W_NS}tbl":
+                continue
+            if el is att10_tbl_ref:
+                continue
+
+            # 刪除抽查備註列（防呆）
+            for row in list(el.findall('./w:tr', NS)):
+                rtxt = get_text(row)
+                if '抽查' in rtxt and '自主檢查表' in rtxt:
+                    el.remove(row)
                     removed_choucha += 1
 
-            # 3. 替換簽章列
-            rows = tbl.findall('./w:tr', NS)
-            rows_to_replace = []
-            
+            # 刪除舊簽章列（管理權人或現場有關人員 + 下一列空白簽名列）
+            rows = el.findall('./w:tr', NS)
+            rows_to_remove = []
             for r_idx, row in enumerate(rows):
-                text = ''.join([t.text for t in row.findall('.//w:t', NS) if t.text])
-                if '管理權人或現場有關人員' in text and ('簽章' in text or '檢查及會同人員' in text or '審核人員' in text):
-                    rows_to_replace.append(r_idx)
-            
-            for r_idx in reversed(rows_to_replace):
+                rtxt = get_text(row)
+                if '管理權人或現場有關人員' in rtxt and ('簽章' in rtxt or '檢查及會同人員' in rtxt or '審核人員' in rtxt):
+                    rows_to_remove.append(r_idx)
+
+            removed_old_sig = False
+            for r_idx in reversed(rows_to_remove):
                 target_row = rows[r_idx]
-                
-                # 動態精準計算最佳比例：檢查日期約 20%~25%（窄欄），其餘約 75%~80% 均分給兩位簽署人
-                grid = tbl.find('./w:tblGrid', NS)
-                col_widths = []
-                if grid is not None:
-                    col_widths = [int(c.attrib.get(f"{W_NS}w", '0')) for c in grid.findall('./w:gridCol', NS)]
-                    
-                N = len(col_widths)
-                total_w = sum(col_widths) if col_widths else 0
-                
-                if N >= 3 and total_w > 0:
-                    target1 = 0.22 * total_w
-                    target2 = 0.39 * total_w
-                    target3 = 0.39 * total_w
-                    
-                    best_score = float('inf')
-                    best_ij = (1, 2)
-                    
-                    for i in range(1, N - 1):
-                        w1 = sum(col_widths[:i])
-                        if w1 < 1200:
-                            continue
-                        for j in range(i + 1, N):
-                            w2 = sum(col_widths[i:j])
-                            w3 = sum(col_widths[j:])
-                            if w2 < 1500 or w3 < 1500:
-                                continue
-                                
-                            score = abs(w1 - target1) * 3.0 + abs(w2 - target2) + abs(w3 - target3) + abs(w2 - w3) * 0.5
-                            if score < best_score:
-                                best_score = score
-                                best_ij = (i, j)
-                                
-                    i, j = best_ij
-                    w1 = sum(col_widths[:i])
-                    w2 = sum(col_widths[i:j])
-                    w3 = sum(col_widths[j:])
-                    gs1, gs2, gs3 = i, j - i, N - j
-                else:
-                    cells = target_row.findall('./w:tc', NS)
-                    def get_w(c):
-                        w_el = c.find('.//w:tcW', NS)
-                        return int(w_el.attrib.get(f"{W_NS}w", '0')) if w_el is not None else 0
-                    def get_gs(c):
-                        gs_el = c.find('.//w:gridSpan', NS)
-                        return int(gs_el.attrib.get(f"{W_NS}val", '1')) if gs_el is not None else 1
-                        
-                    tot = sum(get_w(c) for c in cells) or 10340
-                    tot_gs = sum(get_gs(c) for c in cells) or 6
-                    w1 = int(tot * 0.22)
-                    w2 = int((tot - w1) / 2)
-                    w3 = tot - w1 - w2
-                    gs1 = max(1, round(tot_gs * 0.22))
-                    gs2 = max(1, round((tot_gs - gs1) / 2))
-                    gs3 = max(1, tot_gs - gs1 - gs2)
-                
-                specs = [
-                    ('檢查日期：', w1, gs1),
-                    ('保安檢查員簽名：', w2, gs2),
-                    ('保安監督人複核簽名：', w3, gs3)
-                ]
-                
-                new_tr = create_new_signature_row(specs)
-                
-                row_elements = list(tbl)
-                target_pos = row_elements.index(target_row)
-                
-                # 移除原空白簽名手寫列
-                if target_pos + 1 < len(row_elements) and row_elements[target_pos + 1].tag.endswith('tr'):
-                    tbl.remove(row_elements[target_pos + 1])
-                    
-                tbl.remove(target_row)
-                tbl.insert(target_pos, new_tr)
-                modified_count += 1
-                
+                row_elements = list(el)
+                pos = row_elements.index(target_row)
+                if pos + 1 < len(row_elements) and row_elements[pos + 1].tag == f"{W_NS}tr":
+                    el.remove(row_elements[pos + 1])
+                el.remove(target_row)
+                removed_old_sig = True
+
+            if removed_old_sig:
+                # 尋找插入點：若表格後面有「※本表欄位所稱辦法...」段落，插在其後；否則緊接在表格之後
+                cur_children = list(body)
+                tbl_pos = cur_children.index(el)
+                insert_after = tbl_pos
+
+                # 往後看最多 2 個段落尋找 ※備註行
+                for look in range(tbl_pos + 1, min(tbl_pos + 3, len(cur_children))):
+                    nxt = cur_children[look]
+                    if nxt.tag != f"{W_NS}p":
+                        break
+                    ntxt = get_text(nxt).strip()
+                    if '本表欄位所稱辦法' in ntxt or ntxt.startswith('※'):
+                        insert_after = look
+                        break
+                    elif ntxt != '':
+                        break
+
+                # 檢查是否已經有簽章段落避免重複
+                already_has = False
+                for look in range(insert_after + 1, min(insert_after + 3, len(cur_children))):
+                    nxt = cur_children[look]
+                    if nxt.tag == f"{W_NS}p":
+                        ntxt = get_text(nxt).strip()
+                        if '保安檢查員簽章' in ntxt or '專人簽章' in ntxt:
+                            already_has = True
+                            break
+                        elif ntxt != '':
+                            break
+
+                if not already_has:
+                    body.insert(insert_after + 1, create_signature_paragraph(sig_label))
+                modified_sigs += 1
+
         new_xml = ET.tostring(root, encoding='utf-8', xml_declaration=True)
-        
+
     temp_dst = dst_path + '.tmp'
     with zipfile.ZipFile(src_path, 'r') as zin, zipfile.ZipFile(temp_dst, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
@@ -272,19 +331,20 @@ def convert_docx_file(src_path, dst_path):
                 zout.writestr(item, new_xml)
             else:
                 zout.writestr(item, zin.read(item.filename))
-                
+
     if os.path.exists(dst_path):
         os.remove(dst_path)
     os.rename(temp_dst, dst_path)
-    
+
     return True, {
-        'signatures': modified_count,
-        'removed_joint': removed_joint,
-        'removed_choucha': removed_choucha
+        'mode': '30倍以上' if is_above else '30倍以下',
+        'inserted_att10': inserted_att10,
+        'signatures': modified_sigs,
+        'site_name': info['SITE_NAME'],
     }
 
 
-def process_targets(targets, output_folder=None):
+def process_targets(targets, output_folder=None, mode='auto'):
     files_to_process = []
     for t in targets:
         t = t.strip('"').strip("'")
@@ -298,94 +358,85 @@ def process_targets(targets, output_folder=None):
                 for f in files:
                     if f.lower().endswith('.docx') and not f.startswith('~$'):
                         files_to_process.append(os.path.join(root_dir, f))
-                        
+
     if not files_to_process:
         print("[提示] 沒有找到需要轉換的 .docx 檔案。")
         return
-        
-    print("=" * 65)
-    print(f"  公共危險物品場所自主檢查表 - 自動轉換程式 (v2.3)")
-    print(f"  待處理檔案數量：{len(files_to_process)} 個")
-    print("=" * 65)
-    
+
+    print("=" * 72)
+    print(f"  公共危險物品場所自主檢查表 - 自動轉換程式 (v3.0 · 11308範例版)")
+    print(f"  待處理檔案數量：{len(files_to_process)} 個  |  模式：{mode}")
+    print("=" * 72)
+
     success_count = 0
-    total_tables = 0
-    total_joint = 0
-    total_choucha = 0
-    
+    total_sigs = 0
+    total_att10 = 0
+
     for i, src_file in enumerate(files_to_process, 1):
         file_dir = os.path.dirname(os.path.abspath(src_file))
         file_name = os.path.basename(src_file)
-        
+
         if output_folder:
             dest_dir = os.path.abspath(output_folder)
         else:
             dest_dir = os.path.join(file_dir, "轉換完成")
-            
+
         dst_file = os.path.join(dest_dir, file_name)
-        
+
         try:
-            ok, stats = convert_docx_file(src_file, dst_file)
+            ok, stats = convert_docx_file(src_file, dst_file, mode=mode)
             if ok:
                 success_count += 1
-                sig_cnt = stats['signatures']
-                total_tables += sig_cnt
-                if stats['removed_joint']:
-                    total_joint += 1
-                total_choucha += stats['removed_choucha']
-                tags = [f"簽章{sig_cnt:02d}處"]
-                if stats['removed_joint']:
-                    tags.append("刪聯合表")
-                if stats['removed_choucha'] > 0:
-                    tags.append(f"刪抽查列x{stats['removed_choucha']}")
-                print(f"[{i:02d}/{len(files_to_process):02d}] 成功 ({' / '.join(tags)}): {file_name}")
+                total_sigs += stats['signatures']
+                if stats['inserted_att10']:
+                    total_att10 += 1
+                att_tag = "換附件10" if stats['inserted_att10'] else "僅轉附表"
+                print(f"[{i:02d}/{len(files_to_process):02d}] 成功 ({stats['mode']} / {att_tag} / 附表簽章{stats['signatures']:02d}處): {file_name}")
             else:
                 print(f"[{i:02d}/{len(files_to_process):02d}] 失敗: {file_name}")
         except Exception as e:
             print(f"[{i:02d}/{len(files_to_process):02d}] 發生錯誤: {file_name} -> {e}")
-            
-    print("=" * 65)
+
+    print("=" * 72)
     print(f"  處理完畢！成功處理 {success_count} 個檔案：")
-    print(f"  - 替換簽章表格：{total_tables} 處")
-    print(f"  - 刪除聯合檢查表：{total_joint} 份")
-    print(f"  - 刪除抽查自主檢查表備註列：{total_choucha} 列")
-    print(f"  轉換後的檔案已儲存至：")
+    print(f"  - 替換插入附件10主表：{total_att10} 份")
+    print(f"  - 附表簽章改為範例樣式：{total_sigs} 處")
     if output_folder:
         print(f"  -> {os.path.abspath(output_folder)}")
-    else:
-        print(f"  -> 各來源檔案所在資料夾的「轉換完成」目錄下")
-    print("=" * 65)
+    print("=" * 72)
 
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    if not args:
+    out_folder = None
+    mode = 'auto'
+    filtered_args = []
+    skip_next = False
+    for i, a in enumerate(args):
+        if skip_next:
+            skip_next = False
+            continue
+        if a in ('-o', '--output', '--output-dir'):
+            if i + 1 < len(args):
+                out_folder = args[i + 1]
+                skip_next = True
+        elif a in ('-m', '--mode'):
+            if i + 1 < len(args):
+                mode = args[i + 1]
+                skip_next = True
+        else:
+            filtered_args.append(a)
+
+    if not filtered_args:
         default_input = r"路竹30倍以上-16家ok"
         default_output = r"路竹30倍以上-轉換完成"
-        
         if os.path.exists(default_input):
-            print(f"[*] 偵測到預設資料夾「{default_input}」，即將開始批次轉換...")
-            process_targets([default_input], output_folder=default_output)
+            process_targets([default_input], output_folder=out_folder or default_output, mode=mode)
         else:
             cur_docx = glob.glob("*.docx")
             if cur_docx:
-                print(f"[*] 偵測到當前目錄下有 {len(cur_docx)} 個 .docx 檔案，即將開始轉換...")
-                process_targets(cur_docx, output_folder="轉換完成")
+                process_targets(cur_docx, output_folder=out_folder or "轉換完成", mode=mode)
             else:
                 print("請將檔案或資料夾拖曳至本程式上，或傳入路徑參數。")
     else:
-        out_folder = None
-        filtered_args = []
-        skip_next = False
-        for i, a in enumerate(args):
-            if skip_next:
-                skip_next = False
-                continue
-            if a in ('-o', '--output', '--output-dir'):
-                if i + 1 < len(args):
-                    out_folder = args[i + 1]
-                    skip_next = True
-            else:
-                filtered_args.append(a)
-                
-        process_targets(filtered_args, output_folder=out_folder)
+        process_targets(filtered_args, output_folder=out_folder, mode=mode)
