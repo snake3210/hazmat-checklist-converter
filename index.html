@@ -551,8 +551,8 @@
       const pPr = xmlDoc.createElementNS(W_URI, 'w:pPr');
       pPr.appendChild(xmlDoc.createElementNS(W_URI, 'w:widowControl'));
       const spacing = xmlDoc.createElementNS(W_URI, 'w:spacing');
-      spacing.setAttributeNS(W_URI, 'w:before', '120');
-      spacing.setAttributeNS(W_URI, 'w:after', '120');
+      spacing.setAttributeNS(W_URI, 'w:before', '60');
+      spacing.setAttributeNS(W_URI, 'w:after', '60');
       pPr.appendChild(spacing);
 
       const rPrP = xmlDoc.createElementNS(W_URI, 'w:rPr');
@@ -795,6 +795,22 @@
             const ntxt = (nxt.textContent || '').trim();
             if (ntxt.includes('本表欄位所稱辦法') || ntxt.startsWith('※')) {
               insertAfter = look;
+              // 移除 ※ 段落內原本藏著的手動分頁符號，避免把簽章推到下一頁
+              Array.from(nxt.getElementsByTagNameNS(W_URI, 'br')).forEach(br => {
+                const bType = br.getAttributeNS(W_URI, 'type') || br.getAttribute('w:type');
+                if (bType === 'page' && br.parentNode) {
+                  br.parentNode.removeChild(br);
+                }
+              });
+              // 設定 keepNext 確保備註與簽章留在同一頁
+              let nxtPPr = Array.from(nxt.children).find(el => el.localName === 'pPr');
+              if (!nxtPPr) {
+                nxtPPr = xmlDoc.createElementNS(W_URI, 'w:pPr');
+                nxt.insertBefore(nxtPPr, nxt.firstChild);
+              }
+              if (!Array.from(nxtPPr.children).some(el => el.localName === 'keepNext')) {
+                nxtPPr.appendChild(xmlDoc.createElementNS(W_URI, 'w:keepNext'));
+              }
               break;
             } else if (ntxt !== '') {
               break;

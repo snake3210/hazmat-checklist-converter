@@ -50,7 +50,7 @@ def create_signature_paragraph(sig_text):
     p = ET.Element(f"{W_NS}p")
     pPr = ET.SubElement(p, f"{W_NS}pPr")
     ET.SubElement(pPr, f"{W_NS}widowControl")
-    ET.SubElement(pPr, f"{W_NS}spacing", {f"{W_NS}before": "120", f"{W_NS}after": "120"})
+    ET.SubElement(pPr, f"{W_NS}spacing", {f"{W_NS}before": "60", f"{W_NS}after": "60"})
     rPr_p = ET.SubElement(pPr, f"{W_NS}rPr")
     ET.SubElement(rPr_p, f"{W_NS}rFonts", {
         f"{W_NS}ascii": "標楷體",
@@ -302,6 +302,18 @@ def convert_docx_file(src_path, dst_path, mode='auto'):
                     ntxt = get_text(nxt).strip()
                     if '本表欄位所稱辦法' in ntxt or ntxt.startswith('※'):
                         insert_after = look
+                        # 移除 ※ 段落內原本藏著的手動分頁符號 (<w:br w:type="page"/>)，避免把簽章推到下一頁
+                        for r_el in list(nxt.findall('./w:r', NS)):
+                            for br_el in list(r_el.findall('./w:br', NS)):
+                                if br_el.attrib.get(f"{W_NS}type") == 'page':
+                                    r_el.remove(br_el)
+                        # 設定 keepNext 確保備註與簽章留在同一頁
+                        nxt_pPr = nxt.find('./w:pPr', NS)
+                        if nxt_pPr is None:
+                            nxt_pPr = ET.Element(f"{W_NS}pPr")
+                            nxt.insert(0, nxt_pPr)
+                        if nxt_pPr.find('./w:keepNext', NS) is None:
+                            ET.SubElement(nxt_pPr, f"{W_NS}keepNext")
                         break
                     elif ntxt != '':
                         break
