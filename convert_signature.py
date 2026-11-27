@@ -228,7 +228,7 @@ def convert_docx_file(src_path, dst_path, mode='auto'):
                 if ch.tag == f"{W_NS}p":
                     txt = get_text(ch).strip()
                     if any(kw in txt for kw in SUBTABLE_KEYWORDS):
-                        if not txt.startswith(('一、', '二、', '備註')):
+                        if not txt.startswith(('一、', '二、', '備註')) and '附表三至附表十一' not in txt and '1場所1表' not in txt:
                             first_sub_idx = idx
                             break
 
@@ -321,6 +321,53 @@ def convert_docx_file(src_path, dst_path, mode='auto'):
                 if not already_has:
                     body.insert(insert_after + 1, create_signature_paragraph(sig_label))
                 modified_sigs += 1
+
+        # 3. 每個新附表抬頭（例如「四 公共危險物品室內儲存場所抽查紀錄表」、「附表三...」、「附表十二...」）強制從新分頁開始
+        TITLE_HINTS = ('抽查紀錄表', '數量一覽表', '種類及數量', '場所別名') + SUBTABLE_KEYWORDS
+        cur_children = list(body)
+        sub_table_seen = 0
+        for idx, ch in enumerate(cur_children):
+            if ch.tag != f"{W_NS}tbl" or ch is att10_tbl_ref:
+                continue
+            sub_table_seen += 1
+            # 往前找該表格的抬頭段落（跳過最多 2 個空白段落）
+            title_idx = -1
+            for back in range(idx - 1, max(-1, idx - 4), -1):
+                prev = cur_children[back]
+                if prev.tag != f"{W_NS}p":
+                    break
+                ptxt = get_text(prev).strip()
+                if ptxt == '':
+                    continue
+                if (
+                    any(h in ptxt for h in TITLE_HINTS)
+                    and not ptxt.startswith(('※', '一、', '二、', '備註', '附件10'))
+                    and '保安檢查員簽章' not in ptxt
+                    and '專人簽章' not in ptxt
+                    and '本表欄位所稱辦法' not in ptxt
+                ):
+                    title_idx = back
+                break
+
+            if title_idx > 0:
+                # 若是緊接在附件10分頁後的第一個附表，附件10結尾已有分頁符號，不重複加 pageBreakBefore
+                if inserted_att10 and sub_table_seen == 1:
+                    continue
+                title_p = cur_children[title_idx]
+                pPr = title_p.find('./w:pPr', NS)
+                if pPr is None:
+                    pPr = ET.Element(f"{W_NS}pPr")
+                    title_p.insert(0, pPr)
+                if pPr.find('./w:pageBreakBefore', NS) is None:
+                    ET.SubElement(pPr, f"{W_NS}pageBreakBefore")
+                # 清除抬頭段落正上方多餘的空白或手動分頁段落，避免出現雙重空白頁
+                for back in range(title_idx - 1, max(-1, title_idx - 4), -1):
+                    prev = cur_children[back]
+                    if prev.tag == f"{W_NS}p" and get_text(prev).strip() == '':
+                        if prev in list(body):
+                            body.remove(prev)
+                    else:
+                        break
 
         new_xml = ET.tostring(root, encoding='utf-8', xml_declaration=True)
 

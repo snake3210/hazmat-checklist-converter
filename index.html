@@ -711,7 +711,7 @@
           if (ch.localName === 'p') {
             const txt = (ch.textContent || '').trim();
             if (SUBTABLE_KEYWORDS.some(kw => txt.includes(kw))) {
-              if (!txt.startsWith('一、') && !txt.startsWith('二、') && !txt.startsWith('備註')) {
+              if (!txt.startsWith('一、') && !txt.startsWith('二、') && !txt.startsWith('備註') && !txt.includes('附表三至附表十一') && !txt.includes('1場所1表')) {
                 firstSubIdx = idx;
                 break;
               }
@@ -821,6 +821,56 @@
             body.insertBefore(sigP, refNode);
           }
           modifiedSigs++;
+        }
+      }
+
+      // 4. 每個新附表抬頭強制從新分頁開始（避免抬頭孤立在上一頁底部）
+      const TITLE_HINTS = ['抽查紀錄表', '數量一覽表', '種類及數量', '場所別名', ...SUBTABLE_KEYWORDS];
+      const finalChildren = Array.from(body.children);
+      let subTableSeen = 0;
+      for (let idx = 0; idx < finalChildren.length; idx++) {
+        const ch = finalChildren[idx];
+        if (ch.localName !== 'tbl' || ch === att10TblRef) continue;
+        subTableSeen++;
+
+        let titleIdx = -1;
+        for (let back = idx - 1; back >= Math.max(0, idx - 3); back--) {
+          const prev = finalChildren[back];
+          if (prev.localName !== 'p') break;
+          const ptxt = (prev.textContent || '').trim();
+          if (ptxt === '') continue;
+          if (
+            TITLE_HINTS.some(h => ptxt.includes(h)) &&
+            !ptxt.startsWith('※') && !ptxt.startsWith('一、') && !ptxt.startsWith('二、') &&
+            !ptxt.startsWith('備註') && !ptxt.startsWith('附件10') &&
+            !ptxt.includes('保安檢查員簽章') && !ptxt.includes('專人簽章') &&
+            !ptxt.includes('本表欄位所稱辦法')
+          ) {
+            titleIdx = back;
+          }
+          break;
+        }
+
+        if (titleIdx > 0) {
+          if (insertedAtt10 && subTableSeen === 1) continue;
+          const titleP = finalChildren[titleIdx];
+          let pPr = Array.from(titleP.children).find(el => el.localName === 'pPr');
+          if (!pPr) {
+            pPr = xmlDoc.createElementNS(W_URI, 'w:pPr');
+            titleP.insertBefore(pPr, titleP.firstChild);
+          }
+          const hasPbb = Array.from(pPr.children).some(el => el.localName === 'pageBreakBefore');
+          if (!hasPbb) {
+            pPr.appendChild(xmlDoc.createElementNS(W_URI, 'w:pageBreakBefore'));
+          }
+          for (let back = titleIdx - 1; back >= Math.max(0, titleIdx - 3); back--) {
+            const prev = finalChildren[back];
+            if (prev.localName === 'p' && (prev.textContent || '').trim() === '') {
+              if (prev.parentNode === body) body.removeChild(prev);
+            } else {
+              break;
+            }
+          }
         }
       }
 
